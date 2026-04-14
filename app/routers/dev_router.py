@@ -21,7 +21,7 @@ _SEED_USERS = [
             "size": models.PetSize.large,
             "vaccines_up_to_date": True,
             "description": "Max es un golden retriever juguetón y cariñoso. Le encanta correr en el parque y jugar con la pelota.",
-            "photos": ["https://images.dog.ceo/breeds/retriever-golden/n02099601_1094.jpg"],
+            "photos": ["https://images.unsplash.com/photo-1552053831-71594a27632d?w=600&q=80"],
         },
     },
     {
@@ -36,7 +36,7 @@ _SEED_USERS = [
             "size": models.PetSize.large,
             "vaccines_up_to_date": True,
             "description": "Luna es una husky activa y aventurera. Ama los paseos largos y el frío.",
-            "photos": ["https://images.dog.ceo/breeds/husky/n02110185_10047.jpg"],
+            "photos": ["https://images.unsplash.com/photo-1605568427561-40dd23c2acea?w=600&q=80"],
         },
     },
     {
@@ -51,7 +51,7 @@ _SEED_USERS = [
             "size": models.PetSize.large,
             "vaccines_up_to_date": False,
             "description": "Rocky es un labrador energético que busca su compañera de juegos perfecta.",
-            "photos": ["https://images.dog.ceo/breeds/labrador/n02099712_1462.jpg"],
+            "photos": ["https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&q=80"],
         },
     },
     {
@@ -66,7 +66,7 @@ _SEED_USERS = [
             "size": models.PetSize.small,
             "vaccines_up_to_date": True,
             "description": "Mia es una gata persiana tranquila y elegante. Le encanta el sol y las siestas largas.",
-            "photos": ["https://upload.wikimedia.org/wikipedia/commons/thumb/b/bb/Kittyply_edit1.jpg/1200px-Kittyply_edit1.jpg"],
+            "photos": ["https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&q=80"],
         },
     },
 ]
