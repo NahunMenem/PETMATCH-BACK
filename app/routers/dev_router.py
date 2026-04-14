@@ -1,5 +1,6 @@
 import uuid
 from fastapi import APIRouter, Depends
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from ..database import get_db
@@ -90,8 +91,54 @@ def seed_pets(db: Session = Depends(get_db)):
             db.add(user)
             db.flush()
 
-        # Borrar mascotas viejas y recrear siempre con URLs actualizadas
-        db.query(models.Pet).filter(models.Pet.owner_id == user.id).delete()
+        # Borrar datos relacionados para poder recrear la mascota de prueba sin
+        # chocar con claves foraneas de likes, matches y chats previos.
+        existing_pet_ids = [
+            pet_id
+            for (pet_id,) in db.query(models.Pet.id)
+            .filter(models.Pet.owner_id == user.id)
+            .all()
+        ]
+        if existing_pet_ids:
+            conversation_ids = [
+                conversation_id
+                for (conversation_id,) in db.query(models.Match.conversation_id)
+                .filter(
+                    or_(
+                        models.Match.pet1_id.in_(existing_pet_ids),
+                        models.Match.pet2_id.in_(existing_pet_ids),
+                    ),
+                    models.Match.conversation_id.isnot(None),
+                )
+                .all()
+            ]
+
+            db.query(models.PetLike).filter(
+                or_(
+                    models.PetLike.liker_pet_id.in_(existing_pet_ids),
+                    models.PetLike.liked_pet_id.in_(existing_pet_ids),
+                )
+            ).delete(synchronize_session=False)
+
+            db.query(models.Match).filter(
+                or_(
+                    models.Match.pet1_id.in_(existing_pet_ids),
+                    models.Match.pet2_id.in_(existing_pet_ids),
+                )
+            ).delete(synchronize_session=False)
+
+            if conversation_ids:
+                db.query(models.Message).filter(
+                    models.Message.conversation_id.in_(conversation_ids)
+                ).delete(synchronize_session=False)
+                db.query(models.Conversation).filter(
+                    models.Conversation.id.in_(conversation_ids)
+                ).delete(synchronize_session=False)
+
+            db.query(models.Pet).filter(
+                models.Pet.id.in_(existing_pet_ids)
+            ).delete(synchronize_session=False)
+
         pet_data = entry["pet"]
         pet = models.Pet(
             id=str(uuid.uuid4()),
