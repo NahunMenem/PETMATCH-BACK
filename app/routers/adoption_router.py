@@ -80,6 +80,23 @@ def create_adoption(
     return _adoption_to_out(adoption)
 
 
+@router.delete("/{adoption_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_adoption(
+    adoption_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    adoption = db.query(models.Adoption).filter(
+        models.Adoption.id == adoption_id
+    ).first()
+    if not adoption:
+        raise HTTPException(status_code=404, detail="Publicación no encontrada")
+    if adoption.publisher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No tenés permiso para eliminar esta publicación")
+    db.delete(adoption)
+    db.commit()
+
+
 @router.post("/{adoption_id}/contact")
 def contact_adoption(
     adoption_id: str,
