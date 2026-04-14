@@ -90,27 +90,24 @@ def seed_pets(db: Session = Depends(get_db)):
             db.add(user)
             db.flush()
 
-        # Crear mascota si ese usuario no tiene ninguna
-        existing_pet = db.query(models.Pet).filter(
-            models.Pet.owner_id == user.id
-        ).first()
-        if not existing_pet:
-            pet_data = entry["pet"]
-            pet = models.Pet(
-                id=str(uuid.uuid4()),
-                owner_id=user.id,
-                name=pet_data["name"],
-                type=pet_data["type"],
-                breed=pet_data["breed"],
-                age=pet_data["age"],
-                sex=pet_data["sex"],
-                size=pet_data["size"],
-                vaccines_up_to_date=pet_data["vaccines_up_to_date"],
-                photos=pet_data["photos"],
-                description=pet_data["description"],
-            )
-            db.add(pet)
-            created += 1
+        # Borrar mascotas viejas y recrear siempre con URLs actualizadas
+        db.query(models.Pet).filter(models.Pet.owner_id == user.id).delete()
+        pet_data = entry["pet"]
+        pet = models.Pet(
+            id=str(uuid.uuid4()),
+            owner_id=user.id,
+            name=pet_data["name"],
+            type=pet_data["type"],
+            breed=pet_data["breed"],
+            age=pet_data["age"],
+            sex=pet_data["sex"],
+            size=pet_data["size"],
+            vaccines_up_to_date=pet_data["vaccines_up_to_date"],
+            photos=pet_data["photos"],
+            description=pet_data["description"],
+        )
+        db.add(pet)
+        created += 1
 
     db.commit()
     return {"created": created, "message": f"{created} mascotas de prueba creadas"}
