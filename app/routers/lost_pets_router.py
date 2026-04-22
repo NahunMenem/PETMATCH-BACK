@@ -7,9 +7,15 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..auth import get_current_user
 from ..database import get_db
+from ..patitas_service import consumir_patitas
 
 
 router = APIRouter(prefix="/lost-pets", tags=["lost-pets"])
+
+ALERT_RADIUS_ACTIONS = {
+    2: "lost_notification_2km",
+    5: "lost_notification_5km",
+}
 
 
 def _distance_km(
@@ -146,7 +152,15 @@ def create_lost_pet(
         alert_radius_km=payload.alert_radius_km,
     )
     db.add(lost_pet)
-    db.commit()
+    if payload.alert_radius_km:
+        consumir_patitas(
+            db,
+            current_user,
+            ALERT_RADIUS_ACTIONS[payload.alert_radius_km],
+            descripcion=f"Alerta de mascota perdida a {payload.alert_radius_km} km",
+        )
+    else:
+        db.commit()
     db.refresh(lost_pet)
     return _lost_pet_to_out(lost_pet, current_user)
 
