@@ -13,6 +13,11 @@ class Settings(BaseSettings):
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
     CORS_ORIGINS: str = "http://localhost:3000,http://10.0.2.2"
+    MERCADO_PAGO_ACCESS_TOKEN: str = ""
+    MERCADO_PAGO_WEBHOOK_SECRET: str = ""
+    MERCADO_PAGO_BACK_URL_SUCCESS: str = "petmatch://patitas/success"
+    MERCADO_PAGO_BACK_URL_FAILURE: str = "petmatch://patitas/failure"
+    MERCADO_PAGO_BACK_URL_PENDING: str = "petmatch://patitas/pending"
 
     @property
     def cors_origins_list(self) -> List[str]:

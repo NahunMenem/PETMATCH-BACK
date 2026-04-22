@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .database import Base, engine
+from .migrations import run_startup_migrations
 from .config import settings
 from .routers import (
     auth_router,
@@ -10,10 +11,12 @@ from .routers import (
     upload_router,
     notifications_router,
     dev_router,
+    patitas_router,
 )
 
 # Create all tables
 Base.metadata.create_all(bind=engine)
+run_startup_migrations()
 
 app = FastAPI(
     title="PetMatch API",
@@ -38,6 +41,7 @@ app.include_router(adoption_router.router)
 app.include_router(upload_router.router)
 app.include_router(notifications_router.router)
 app.include_router(dev_router.router)
+app.include_router(patitas_router.router)
 
 
 @app.get("/health")

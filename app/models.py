@@ -36,6 +36,19 @@ class AdoptionStatus(str, enum.Enum):
     adopted = "adopted"
 
 
+class PatitasTransactionType(str, enum.Enum):
+    compra = "compra"
+    uso = "uso"
+
+
+class PatitasTransactionStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    used = "used"
+    failed = "failed"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -49,12 +62,33 @@ class User(Base):
     longitude = Column(Float, nullable=True)
     is_verified = Column(Boolean, default=False)
     is_premium = Column(Boolean, default=False)
+    patitas = Column(Integer, nullable=False, default=0)
     google_id = Column(String, unique=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     pets = relationship("Pet", back_populates="owner", lazy="dynamic")
     adoptions = relationship("Adoption", back_populates="publisher", lazy="dynamic")
+    patitas_transactions = relationship(
+        "PatitasTransaction", back_populates="user", lazy="dynamic"
+    )
+
+
+class PatitasTransaction(Base):
+    __tablename__ = "transacciones_patitas"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    usuario_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    tipo = Column(Enum(PatitasTransactionType), nullable=False)
+    cantidad = Column(Integer, nullable=False)
+    descripcion = Column(Text, nullable=False)
+    estado = Column(Enum(PatitasTransactionStatus), nullable=False)
+    fecha = Column(DateTime, default=datetime.utcnow, nullable=False)
+    mercado_pago_preference_id = Column(String, nullable=True, index=True)
+    mercado_pago_payment_id = Column(String, nullable=True, unique=True, index=True)
+    pack_id = Column(String, nullable=True)
+
+    user = relationship("User", back_populates="patitas_transactions")
 
 
 class Pet(Base):

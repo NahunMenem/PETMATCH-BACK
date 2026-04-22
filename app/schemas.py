@@ -33,6 +33,7 @@ class UserOut(BaseModel):
     location: Optional[str]
     is_verified: bool
     is_premium: bool
+    patitas: int = 0
     created_at: datetime
 
     class Config:
@@ -198,3 +199,52 @@ class NotificationOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Patitas
+
+class PatitasPackOut(BaseModel):
+    id: str
+    name: str
+    price: int
+    base_patitas: int
+    bonus_patitas: int
+    total_patitas: int
+
+
+class CrearPreferenciaPatitas(BaseModel):
+    pack_id: str
+
+
+class PreferenciaPatitasOut(BaseModel):
+    preference_id: str
+    init_point: str
+    sandbox_init_point: Optional[str] = None
+
+
+class PatitasTransactionOut(BaseModel):
+    id: str
+    usuario_id: str
+    tipo: str
+    cantidad: int
+    descripcion: str
+    estado: str
+    fecha: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PatitasWalletOut(BaseModel):
+    patitas: int
+    transactions: List[PatitasTransactionOut]
+
+
+class ConsumirPatitasRequest(BaseModel):
+    action: str
+    descripcion: Optional[str] = None
+
+
+class ConsumirPatitasOut(BaseModel):
+    patitas: int
+    transaction: PatitasTransactionOut
