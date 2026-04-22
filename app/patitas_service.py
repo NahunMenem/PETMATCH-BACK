@@ -28,7 +28,7 @@ PATITAS_PACKS = {
 
 
 PATITAS_COSTS = {
-    "lost_notification_2km": 20,
+    "lost_notification_2km": 30,
     "lost_notification_5km": 50,
     "adoption_feature": 30,
     "adoption_feature_24h": 50,
