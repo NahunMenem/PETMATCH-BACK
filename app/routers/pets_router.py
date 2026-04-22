@@ -7,8 +7,11 @@ from sqlalchemy import and_, not_, exists
 from ..database import get_db
 from .. import models, schemas
 from ..auth import get_current_user
+from ..patitas_service import PATITAS_DESCRIPTIONS, consumir_patitas
 
 router = APIRouter(prefix="/pets", tags=["pets"])
+
+SEE_LIKES_ACTION = "matching_see_likes"
 
 
 def _pet_to_out(pet: models.Pet, distance_km: Optional[float] = None) -> schemas.PetOut:
@@ -32,6 +35,79 @@ def _pet_to_out(pet: models.Pet, distance_km: Optional[float] = None) -> schemas
         distance_km=distance_km,
         is_active=pet.is_active,
         created_at=pet.created_at,
+    )
+
+
+def _likes_unlocked(db: Session, user: models.User) -> bool:
+    descriptions = {
+        PATITAS_DESCRIPTIONS[SEE_LIKES_ACTION],
+        "Ver quien dio like",
+        "Ver quién dio like",
+        "Ver quiÃ©n dio like",
+    }
+    return (
+        db.query(models.PatitasTransaction.id)
+        .filter(
+            models.PatitasTransaction.usuario_id == user.id,
+            models.PatitasTransaction.tipo == models.PatitasTransactionType.uso,
+            models.PatitasTransaction.estado == models.PatitasTransactionStatus.used,
+            models.PatitasTransaction.descripcion.in_(descriptions),
+        )
+        .first()
+        is not None
+    )
+
+
+def _received_likes_response(
+    db: Session,
+    user: models.User,
+    unlocked: bool,
+) -> schemas.ReceivedLikesOut:
+    my_pet_ids = [
+        pet_id
+        for (pet_id,) in db.query(models.Pet.id)
+        .filter(models.Pet.owner_id == user.id)
+        .all()
+    ]
+    if not my_pet_ids:
+        return schemas.ReceivedLikesOut(total=0, unlocked=unlocked, likes=[])
+
+    query = (
+        db.query(models.PetLike)
+        .join(models.Pet, models.Pet.id == models.PetLike.liker_pet_id)
+        .filter(
+            models.PetLike.liked_pet_id.in_(my_pet_ids),
+            models.PetLike.is_dislike == False,
+            models.Pet.owner_id != user.id,
+            models.Pet.is_active == True,
+        )
+        .order_by(models.PetLike.id.desc())
+    )
+    likes = query.all()
+
+    items = []
+    for like in likes:
+        liker_pet = like.liker_pet
+        liked_pet = like.liked_pet
+        photo = (liker_pet.photos or [None])[0]
+        if unlocked:
+            items.append(
+                schemas.ReceivedLikeOut(
+                    pet_id=liker_pet.id,
+                    pet_name=liker_pet.name,
+                    pet_photo=photo,
+                    owner_name=liker_pet.owner.name,
+                    liked_my_pet_id=liked_pet.id,
+                    liked_my_pet_name=liked_pet.name,
+                )
+            )
+        else:
+            items.append(schemas.ReceivedLikeOut(pet_photo=photo))
+
+    return schemas.ReceivedLikesOut(
+        total=len(likes),
+        unlocked=unlocked,
+        likes=items[:20] if unlocked else items[:4],
     )
 
 
@@ -80,6 +156,33 @@ def explore_pets(
 
     pets = query.offset((page - 1) * 20).limit(20).all()
     return [_pet_to_out(p) for p in pets]
+
+
+@router.get("/likes-received", response_model=schemas.ReceivedLikesOut)
+def get_likes_received(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return _received_likes_response(
+        db=db,
+        user=current_user,
+        unlocked=_likes_unlocked(db, current_user),
+    )
+
+
+@router.post("/likes-received/unlock", response_model=schemas.ReceivedLikesOut)
+def unlock_likes_received(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not _likes_unlocked(db, current_user):
+        consumir_patitas(
+            db,
+            current_user,
+            SEE_LIKES_ACTION,
+            descripcion=PATITAS_DESCRIPTIONS[SEE_LIKES_ACTION],
+        )
+    return _received_likes_response(db=db, user=current_user, unlocked=True)
 
 
 @router.post("", response_model=schemas.PetOut, status_code=status.HTTP_201_CREATED)

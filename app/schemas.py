@@ -120,6 +120,21 @@ class MatchOut(BaseModel):
 
 # ── Chat ──────────────────────────────────────────────────────────────────────
 
+class ReceivedLikeOut(BaseModel):
+    pet_id: Optional[str] = None
+    pet_name: Optional[str] = None
+    pet_photo: Optional[str] = None
+    owner_name: Optional[str] = None
+    liked_my_pet_id: Optional[str] = None
+    liked_my_pet_name: Optional[str] = None
+
+
+class ReceivedLikesOut(BaseModel):
+    total: int
+    unlocked: bool
+    likes: List[ReceivedLikeOut]
+
+
 class ConversationOut(BaseModel):
     id: str
     match_id: str
