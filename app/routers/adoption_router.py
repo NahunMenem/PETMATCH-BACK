@@ -55,6 +55,20 @@ def get_adoptions(
     return [_adoption_to_out(a) for a in adoptions]
 
 
+@router.get("/mine", response_model=List[schemas.AdoptionOut])
+def get_my_adoptions(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    adoptions = (
+        db.query(models.Adoption)
+        .filter(models.Adoption.publisher_id == current_user.id)
+        .order_by(models.Adoption.published_at.desc())
+        .all()
+    )
+    return [_adoption_to_out(a) for a in adoptions]
+
+
 @router.post("", response_model=schemas.AdoptionOut, status_code=status.HTTP_201_CREATED)
 def create_adoption(
     data: schemas.AdoptionCreate,
@@ -75,6 +89,29 @@ def create_adoption(
         location=data.location,
     )
     db.add(adoption)
+    db.commit()
+    db.refresh(adoption)
+    return _adoption_to_out(adoption)
+
+
+@router.patch("/{adoption_id}/status", response_model=schemas.AdoptionOut)
+def update_adoption_status(
+    adoption_id: str,
+    data: schemas.AdoptionStatusUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    adoption = db.query(models.Adoption).filter(
+        models.Adoption.id == adoption_id
+    ).first()
+    if not adoption:
+        raise HTTPException(status_code=404, detail="Publicación no encontrada")
+    if adoption.publisher_id != current_user.id:
+        raise HTTPException(status_code=403, detail="No tenés permiso para editar esta publicación")
+    if data.status not in ("available", "reserved", "adopted"):
+        raise HTTPException(status_code=400, detail="Estado inválido")
+
+    adoption.status = data.status
     db.commit()
     db.refresh(adoption)
     return _adoption_to_out(adoption)
@@ -108,6 +145,8 @@ def contact_adoption(
     ).first()
     if not adoption:
         raise HTTPException(status_code=404, detail="Publicación no encontrada")
+    if adoption.status != models.AdoptionStatus.available:
+        raise HTTPException(status_code=400, detail="Esta publicación ya no está disponible")
 
     # Create a conversation between interested user and publisher
     existing = db.query(models.Conversation).filter(

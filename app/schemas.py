@@ -164,6 +164,10 @@ class AdoptionCreate(BaseModel):
     location: str
 
 
+class AdoptionStatusUpdate(BaseModel):
+    status: str
+
+
 class AdoptionOut(BaseModel):
     id: str
     publisher_id: str
