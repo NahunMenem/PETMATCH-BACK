@@ -42,12 +42,20 @@ def _distance_km(
 def _lost_pet_to_out(
     lost_pet: models.LostPet,
     current_user: Optional[models.User] = None,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
 ) -> schemas.LostPetOut:
     distance = None
-    if current_user:
+    user_latitude = latitude if latitude is not None else (
+        current_user.latitude if current_user else None
+    )
+    user_longitude = longitude if longitude is not None else (
+        current_user.longitude if current_user else None
+    )
+    if user_latitude is not None and user_longitude is not None:
         distance = _distance_km(
-            current_user.latitude,
-            current_user.longitude,
+            user_latitude,
+            user_longitude,
             lost_pet.latitude,
             lost_pet.longitude,
         )
@@ -78,6 +86,8 @@ def _lost_pet_to_out(
 def list_lost_pets(
     page: int = Query(1, ge=1),
     status_filter: Optional[str] = Query("active", alias="status"),
+    lat: Optional[float] = Query(None),
+    lng: Optional[float] = Query(None),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
@@ -91,7 +101,10 @@ def list_lost_pets(
         .limit(20)
         .all()
     )
-    return [_lost_pet_to_out(lost_pet, current_user) for lost_pet in lost_pets]
+    return [
+        _lost_pet_to_out(lost_pet, current_user, latitude=lat, longitude=lng)
+        for lost_pet in lost_pets
+    ]
 
 
 @router.get("/mine", response_model=List[schemas.LostPetOut])
