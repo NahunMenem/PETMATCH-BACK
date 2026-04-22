@@ -55,6 +55,7 @@ def _adoption_to_out(
         latitude=adoption.latitude,
         longitude=adoption.longitude,
         distance_km=distance,
+        phone=adoption.phone or "",
         status=adoption.status.value,
         published_at=adoption.published_at,
     )
@@ -118,6 +119,9 @@ def create_adoption(
     if data.size not in ("small", "medium", "large"):
         raise HTTPException(status_code=400, detail="Tamaño inválido")
 
+    if not data.phone.strip():
+        raise HTTPException(status_code=400, detail="Telefono requerido")
+
     adoption = models.Adoption(
         id=str(uuid.uuid4()),
         publisher_id=current_user.id,
@@ -132,6 +136,7 @@ def create_adoption(
         location=data.location,
         latitude=data.latitude,
         longitude=data.longitude,
+        phone=data.phone.strip(),
     )
     db.add(adoption)
     db.commit()

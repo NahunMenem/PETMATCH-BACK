@@ -196,6 +196,7 @@ class Adoption(Base):
     location = Column(String, nullable=False)
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
+    phone = Column(String, nullable=False, default="")
     status = Column(Enum(AdoptionStatus), default=AdoptionStatus.available)
     published_at = Column(DateTime, default=datetime.utcnow)
 

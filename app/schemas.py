@@ -179,6 +179,7 @@ class AdoptionCreate(BaseModel):
     location: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    phone: str
 
 
 class AdoptionStatusUpdate(BaseModel):
@@ -202,6 +203,7 @@ class AdoptionOut(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     distance_km: Optional[float] = None
+    phone: str = ""
     status: str
     published_at: datetime
 
