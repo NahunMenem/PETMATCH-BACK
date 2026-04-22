@@ -75,6 +75,11 @@ def create_adoption(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if data.type not in ("dog", "cat"):
+        raise HTTPException(status_code=400, detail="Tipo de mascota inválido")
+    if data.size not in ("small", "medium", "large"):
+        raise HTTPException(status_code=400, detail="Tamaño inválido")
+
     adoption = models.Adoption(
         id=str(uuid.uuid4()),
         publisher_id=current_user.id,
