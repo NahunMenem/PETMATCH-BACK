@@ -1,5 +1,6 @@
 import uuid
 import math
+from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
@@ -65,6 +66,7 @@ def _distance_km(
 
 
 def _likes_unlocked(db: Session, user: models.User) -> bool:
+    since = datetime.utcnow() - timedelta(days=30)
     descriptions = {
         PATITAS_DESCRIPTIONS[SEE_LIKES_ACTION],
         "Ver quien dio like",
@@ -78,6 +80,7 @@ def _likes_unlocked(db: Session, user: models.User) -> bool:
             models.PatitasTransaction.tipo == models.PatitasTransactionType.uso,
             models.PatitasTransaction.estado == models.PatitasTransactionStatus.used,
             models.PatitasTransaction.descripcion.in_(descriptions),
+            models.PatitasTransaction.fecha >= since,
         )
         .first()
         is not None
