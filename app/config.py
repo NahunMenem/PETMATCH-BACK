@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     MERCADO_PAGO_BACK_URL_SUCCESS: str = "petmatch://patitas/success"
     MERCADO_PAGO_BACK_URL_FAILURE: str = "petmatch://patitas/failure"
     MERCADO_PAGO_BACK_URL_PENDING: str = "petmatch://patitas/pending"
+    MERCADO_PAGO_NOTIFICATION_URL: str = (
+        "https://petmatch-back-production.up.railway.app/webhook-mercadopago"
+    )
 
     @property
     def cors_origins_list(self) -> List[str]:

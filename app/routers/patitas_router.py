@@ -225,6 +225,7 @@ def crear_preferencia(
             "failure": settings.MERCADO_PAGO_BACK_URL_FAILURE,
             "pending": settings.MERCADO_PAGO_BACK_URL_PENDING,
         },
+        "notification_url": settings.MERCADO_PAGO_NOTIFICATION_URL,
         "auto_return": "approved",
     }
     response = requests.post(
