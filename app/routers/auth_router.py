@@ -120,3 +120,18 @@ def refresh_token(data: schemas.TokenRefresh, db: Session = Depends(get_db)):
 @router.get("/me", response_model=schemas.UserOut)
 def me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+
+@router.patch("/me/location", response_model=schemas.UserOut)
+def update_location(
+    data: schemas.UserLocationUpdate,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    current_user.latitude = data.latitude
+    current_user.longitude = data.longitude
+    if data.location is not None:
+        current_user.location = data.location
+    db.commit()
+    db.refresh(current_user)
+    return current_user

@@ -31,6 +31,8 @@ class UserOut(BaseModel):
     name: str
     photo_url: Optional[str]
     location: Optional[str]
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     is_verified: bool
     is_premium: bool
     patitas: int = 0
@@ -45,6 +47,12 @@ class AuthResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user: UserOut
+
+
+class UserLocationUpdate(BaseModel):
+    latitude: float
+    longitude: float
+    location: Optional[str] = None
 
 
 # ── Pet ───────────────────────────────────────────────────────────────────────

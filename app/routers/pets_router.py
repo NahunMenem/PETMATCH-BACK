@@ -1,4 +1,5 @@
 import uuid
+import math
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
@@ -41,6 +42,26 @@ def _pet_to_out(pet: models.Pet, distance_km: Optional[float] = None) -> schemas
         is_active=pet.is_active,
         created_at=pet.created_at,
     )
+
+
+def _distance_km(
+    lat1: Optional[float],
+    lng1: Optional[float],
+    lat2: Optional[float],
+    lng2: Optional[float],
+) -> Optional[float]:
+    if None in (lat1, lng1, lat2, lng2):
+        return None
+    radius = 6371.0
+    d_lat = math.radians(lat2 - lat1)
+    d_lng = math.radians(lng2 - lng1)
+    a = (
+        math.sin(d_lat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(d_lng / 2) ** 2
+    )
+    return round(radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)), 1)
 
 
 def _likes_unlocked(db: Session, user: models.User) -> bool:
@@ -130,6 +151,7 @@ def explore_pets(
     type: Optional[str] = Query(None),
     lat: Optional[float] = Query(None),
     lng: Optional[float] = Query(None),
+    max_distance: int = Query(50, ge=1, le=500),
     page: int = Query(1, ge=1),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -159,8 +181,21 @@ def explore_pets(
     if type in ("dog", "cat"):
         query = query.filter(models.Pet.type == type)
 
-    pets = query.offset((page - 1) * 20).limit(20).all()
-    return [_pet_to_out(p) for p in pets]
+    user_lat = lat if lat is not None else current_user.latitude
+    user_lng = lng if lng is not None else current_user.longitude
+
+    candidates = query.all()
+    items = []
+    for pet in candidates:
+        distance = _distance_km(user_lat, user_lng, pet.owner.latitude, pet.owner.longitude)
+        if user_lat is not None and user_lng is not None:
+            if distance is None or distance > max_distance:
+                continue
+        items.append((distance if distance is not None else 999999.0, pet, distance))
+
+    items.sort(key=lambda item: item[0])
+    page_items = items[(page - 1) * 20 : page * 20]
+    return [_pet_to_out(pet, distance_km=distance) for _, pet, distance in page_items]
 
 
 @router.get("/likes-received", response_model=schemas.ReceivedLikesOut)

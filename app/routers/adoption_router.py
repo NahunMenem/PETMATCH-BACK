@@ -85,8 +85,10 @@ def get_adoptions(
 
     adoptions = query.order_by(models.Adoption.published_at.desc()) \
         .offset((page - 1) * 20).limit(20).all()
-    items = [_adoption_to_out(a, latitude=lat, longitude=lng) for a in adoptions]
-    if max_distance is not None and lat is not None and lng is not None:
+    user_lat = lat if lat is not None else current_user.latitude
+    user_lng = lng if lng is not None else current_user.longitude
+    items = [_adoption_to_out(a, latitude=user_lat, longitude=user_lng) for a in adoptions]
+    if max_distance is not None and user_lat is not None and user_lng is not None:
         items = [
             item
             for item in items
