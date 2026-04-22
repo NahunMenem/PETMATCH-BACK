@@ -1,4 +1,5 @@
 import uuid
+import requests
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from google.oauth2 import id_token
@@ -7,13 +8,30 @@ from google.auth.transport import requests as google_requests
 from ..database import get_db
 from .. import models, schemas
 from ..auth import (
-    hash_password, verify_password,
-    create_access_token, create_refresh_token,
-    decode_token, get_current_user,
+    hash_password,
+    verify_password,
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    get_current_user,
 )
 from ..config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _google_userinfo_from_access_token(access_token: str) -> dict:
+    response = requests.get(
+        "https://www.googleapis.com/oauth2/v3/userinfo",
+        headers={"Authorization": f"Bearer {access_token}"},
+        timeout=10,
+    )
+    if not response.ok:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de Google invalido",
+        )
+    return response.json()
 
 
 def _build_auth_response(user: models.User) -> schemas.AuthResponse:
@@ -49,34 +67,48 @@ def login(data: schemas.UserLogin, db: Session = Depends(get_db)):
     if not user or not user.hashed_password:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos",
+            detail="Email o contrasena incorrectos",
         )
     if not verify_password(data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos",
+            detail="Email o contrasena incorrectos",
         )
     return _build_auth_response(user)
 
 
 @router.post("/google", response_model=schemas.AuthResponse)
 def google_auth(data: schemas.GoogleAuth, db: Session = Depends(get_db)):
-    try:
-        info = id_token.verify_oauth2_token(
-            data.id_token,
-            google_requests.Request(),
-            settings.GOOGLE_CLIENT_ID,
-        )
-    except ValueError:
+    if not data.id_token and not data.access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token de Google inválido",
+            detail="Faltan credenciales de Google",
         )
 
-    google_id = info["sub"]
+    if data.id_token:
+        try:
+            info = id_token.verify_oauth2_token(
+                data.id_token,
+                google_requests.Request(),
+                settings.GOOGLE_CLIENT_ID or None,
+            )
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token de Google invalido",
+            )
+    else:
+        info = _google_userinfo_from_access_token(data.access_token)
+
+    google_id = info.get("sub")
     email = info.get("email", "")
     name = info.get("name", email.split("@")[0])
     photo_url = info.get("picture")
+    if not google_id or not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="No se pudo validar la cuenta de Google",
+        )
 
     user = db.query(models.User).filter(models.User.google_id == google_id).first()
     if not user:
@@ -106,7 +138,7 @@ def refresh_token(data: schemas.TokenRefresh, db: Session = Depends(get_db)):
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token inválido",
+            detail="Refresh token invalido",
         )
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if not user:

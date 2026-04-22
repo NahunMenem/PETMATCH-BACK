@@ -17,7 +17,7 @@ class UserLogin(BaseModel):
 
 
 class GoogleAuth(BaseModel):
-    id_token: str
+    id_token: Optional[str] = None
     access_token: Optional[str] = None
 
 
