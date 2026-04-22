@@ -1,4 +1,5 @@
 import uuid
+import math
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -10,8 +11,33 @@ from ..auth import get_current_user
 router = APIRouter(prefix="/adoptions", tags=["adoptions"])
 
 
-def _adoption_to_out(adoption: models.Adoption) -> schemas.AdoptionOut:
+def _distance_km(
+    lat1: Optional[float],
+    lng1: Optional[float],
+    lat2: Optional[float],
+    lng2: Optional[float],
+) -> Optional[float]:
+    if None in (lat1, lng1, lat2, lng2):
+        return None
+    radius = 6371.0
+    d_lat = math.radians(lat2 - lat1)
+    d_lng = math.radians(lng2 - lng1)
+    a = (
+        math.sin(d_lat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(d_lng / 2) ** 2
+    )
+    return round(radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a)), 1)
+
+
+def _adoption_to_out(
+    adoption: models.Adoption,
+    latitude: Optional[float] = None,
+    longitude: Optional[float] = None,
+) -> schemas.AdoptionOut:
     pub = adoption.publisher
+    distance = _distance_km(latitude, longitude, adoption.latitude, adoption.longitude)
     return schemas.AdoptionOut(
         id=adoption.id,
         publisher_id=adoption.publisher_id,
@@ -26,6 +52,9 @@ def _adoption_to_out(adoption: models.Adoption) -> schemas.AdoptionOut:
         description=adoption.description,
         photos=adoption.photos or [],
         location=adoption.location,
+        latitude=adoption.latitude,
+        longitude=adoption.longitude,
+        distance_km=distance,
         status=adoption.status.value,
         published_at=adoption.published_at,
     )
@@ -35,6 +64,8 @@ def _adoption_to_out(adoption: models.Adoption) -> schemas.AdoptionOut:
 def get_adoptions(
     type: Optional[str] = Query(None),
     max_distance: Optional[int] = Query(None),
+    lat: Optional[float] = Query(None),
+    lng: Optional[float] = Query(None),
     age: Optional[str] = Query(None),
     size: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
@@ -52,7 +83,14 @@ def get_adoptions(
 
     adoptions = query.order_by(models.Adoption.published_at.desc()) \
         .offset((page - 1) * 20).limit(20).all()
-    return [_adoption_to_out(a) for a in adoptions]
+    items = [_adoption_to_out(a, latitude=lat, longitude=lng) for a in adoptions]
+    if max_distance is not None and lat is not None and lng is not None:
+        items = [
+            item
+            for item in items
+            if item.distance_km is not None and item.distance_km <= max_distance
+        ]
+    return items
 
 
 @router.get("/mine", response_model=List[schemas.AdoptionOut])
@@ -66,7 +104,7 @@ def get_my_adoptions(
         .order_by(models.Adoption.published_at.desc())
         .all()
     )
-    return [_adoption_to_out(a) for a in adoptions]
+    return [_adoption_to_out(a, latitude=current_user.latitude, longitude=current_user.longitude) for a in adoptions]
 
 
 @router.post("", response_model=schemas.AdoptionOut, status_code=status.HTTP_201_CREATED)
@@ -92,6 +130,8 @@ def create_adoption(
         description=data.description,
         photos=data.photos,
         location=data.location,
+        latitude=data.latitude,
+        longitude=data.longitude,
     )
     db.add(adoption)
     db.commit()

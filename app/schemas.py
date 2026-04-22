@@ -177,6 +177,8 @@ class AdoptionCreate(BaseModel):
     description: str
     photos: List[str] = []
     location: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
 
 
 class AdoptionStatusUpdate(BaseModel):
@@ -197,6 +199,9 @@ class AdoptionOut(BaseModel):
     description: str
     photos: List[str]
     location: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    distance_km: Optional[float] = None
     status: str
     published_at: datetime
 
