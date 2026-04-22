@@ -7,6 +7,11 @@ from sqlalchemy import and_, not_, exists
 from ..database import get_db
 from .. import models, schemas
 from ..auth import get_current_user
+from ..notification_service import (
+    TYPE_LIKE,
+    TYPE_NEW_MATCH,
+    create_notification,
+)
 from ..patitas_service import PATITAS_DESCRIPTIONS, consumir_patitas
 
 router = APIRouter(prefix="/pets", tags=["pets"])
@@ -259,6 +264,16 @@ def like_pet(
     )
     db.add(like)
     db.flush()
+    if liked_pet.owner_id != current_user.id:
+        create_notification(
+            db,
+            user_id=liked_pet.owner_id,
+            type=TYPE_LIKE,
+            title="Nuevo like",
+            body=f"A {my_pet.name} le gusto {liked_pet.name}.",
+            image_url=(my_pet.photos or [None])[0],
+            action_id=my_pet.id,
+        )
 
     # Check for mutual like (match)
     mutual = db.query(models.PetLike).filter(
@@ -285,6 +300,24 @@ def like_pet(
             conversation_id=conv.id,
         )
         db.add(match)
+        create_notification(
+            db,
+            user_id=current_user.id,
+            type=TYPE_NEW_MATCH,
+            title="Nuevo match",
+            body=f"{my_pet.name} y {liked_pet.name} hicieron match.",
+            image_url=(liked_pet.photos or [None])[0],
+            action_id=conv.id,
+        )
+        create_notification(
+            db,
+            user_id=liked_pet.owner_id,
+            type=TYPE_NEW_MATCH,
+            title="Nuevo match",
+            body=f"{liked_pet.name} y {my_pet.name} hicieron match.",
+            image_url=(my_pet.photos or [None])[0],
+            action_id=conv.id,
+        )
         db.commit()
         return {"match": True, "match_id": match.id, "conversation_id": conv.id}
 

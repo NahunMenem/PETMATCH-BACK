@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models, schemas
 from ..auth import get_current_user
+from ..notification_service import TYPE_ADOPTION_INTEREST, create_notification
 
 router = APIRouter(prefix="/adoptions", tags=["adoptions"])
 
@@ -213,7 +214,26 @@ def contact_adoption(
             user2_id=adoption.publisher_id,
         )
         db.add(conv)
+        create_notification(
+            db,
+            user_id=adoption.publisher_id,
+            type=TYPE_ADOPTION_INTEREST,
+            title="Solicitud de adopcion",
+            body=f"{current_user.name} quiere consultar por {adoption.name}.",
+            image_url=(adoption.photos or [None])[0],
+            action_id=conv.id,
+        )
         db.commit()
         return {"conversation_id": conv.id}
 
+    create_notification(
+        db,
+        user_id=adoption.publisher_id,
+        type=TYPE_ADOPTION_INTEREST,
+        title="Solicitud de adopcion",
+        body=f"{current_user.name} quiere consultar por {adoption.name}.",
+        image_url=(adoption.photos or [None])[0],
+        action_id=existing.id,
+    )
+    db.commit()
     return {"conversation_id": existing.id}

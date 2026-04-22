@@ -7,6 +7,7 @@ from sqlalchemy import or_, and_, func
 from ..database import get_db
 from .. import models, schemas
 from ..auth import get_current_user
+from ..notification_service import TYPE_NEW_MESSAGE, create_notification
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -132,6 +133,16 @@ def send_message(
         content=data.content,
     )
     db.add(msg)
+    receiver_id = conv.user2_id if conv.user1_id == current_user.id else conv.user1_id
+    create_notification(
+        db,
+        user_id=receiver_id,
+        type=TYPE_NEW_MESSAGE,
+        title="Nuevo mensaje",
+        body=f"{current_user.name}: \"{data.content[:80]}\"",
+        image_url=current_user.photo_url,
+        action_id=conv.id,
+    )
     db.commit()
     db.refresh(msg)
     return msg

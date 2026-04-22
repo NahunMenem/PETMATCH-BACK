@@ -7,6 +7,11 @@ from sqlalchemy.orm import Session
 from .. import models, schemas
 from ..auth import get_current_user
 from ..database import get_db
+from ..notification_service import (
+    TYPE_LOST_ALERT_REACH,
+    create_notification,
+    notify_users_near_lost_pet,
+)
 from ..patitas_service import consumir_patitas
 
 
@@ -172,6 +177,25 @@ def create_lost_pet(
             ALERT_RADIUS_ACTIONS[payload.alert_radius_km],
             descripcion=f"Alerta de mascota perdida a {payload.alert_radius_km} km",
         )
+        db.flush()
+        notified = notify_users_near_lost_pet(
+            db,
+            lost_pet=lost_pet,
+            radius_km=payload.alert_radius_km,
+        )
+        create_notification(
+            db,
+            user_id=current_user.id,
+            type=TYPE_LOST_ALERT_REACH,
+            title=f"Tu alerta llego a {notified} personas",
+            body=(
+                f"La alerta de {lost_pet.name} fue enviada en un radio "
+                f"de {payload.alert_radius_km} km."
+            ),
+            image_url=(photos or [None])[0],
+            action_id=lost_pet.id,
+        )
+        db.commit()
     else:
         db.commit()
     db.refresh(lost_pet)

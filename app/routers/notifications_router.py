@@ -24,6 +24,19 @@ def get_notifications(
     return notifications
 
 
+@router.patch("/read-all")
+def mark_all_read(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db.query(models.Notification).filter(
+        models.Notification.user_id == current_user.id,
+        models.Notification.is_read == False,
+    ).update({"is_read": True})
+    db.commit()
+    return {"ok": True}
+
+
 @router.patch("/{notification_id}/read")
 def mark_read(
     notification_id: str,
@@ -33,19 +46,6 @@ def mark_read(
     db.query(models.Notification).filter(
         models.Notification.id == notification_id,
         models.Notification.user_id == current_user.id,
-    ).update({"is_read": True})
-    db.commit()
-    return {"ok": True}
-
-
-@router.patch("/read-all")
-def mark_all_read(
-    current_user: models.User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    db.query(models.Notification).filter(
-        models.Notification.user_id == current_user.id,
-        models.Notification.is_read == False,
     ).update({"is_read": True})
     db.commit()
     return {"ok": True}
