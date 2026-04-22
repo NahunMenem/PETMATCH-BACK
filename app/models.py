@@ -36,6 +36,12 @@ class AdoptionStatus(str, enum.Enum):
     adopted = "adopted"
 
 
+class LostPetStatus(str, enum.Enum):
+    active = "active"
+    found = "found"
+    closed = "closed"
+
+
 class PatitasTransactionType(str, enum.Enum):
     compra = "compra"
     uso = "uso"
@@ -69,6 +75,7 @@ class User(Base):
 
     pets = relationship("Pet", back_populates="owner", lazy="dynamic")
     adoptions = relationship("Adoption", back_populates="publisher", lazy="dynamic")
+    lost_pet_reports = relationship("LostPet", back_populates="reporter", lazy="dynamic")
     patitas_transactions = relationship(
         "PatitasTransaction", back_populates="user", lazy="dynamic"
     )
@@ -193,6 +200,30 @@ class Adoption(Base):
     published_at = Column(DateTime, default=datetime.utcnow)
 
     publisher = relationship("User", back_populates="adoptions")
+
+
+class LostPet(Base):
+    __tablename__ = "lost_pets"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    reporter_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    pet_id = Column(String, ForeignKey("pets.id"), nullable=True, index=True)
+    name = Column(String, nullable=False)
+    type = Column(Enum(PetType), nullable=False)
+    description = Column(Text, nullable=False)
+    phone = Column(String, nullable=False)
+    photos = Column(PG_ARRAY(String), default=[])
+    location = Column(String, nullable=False)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    reward_amount = Column(Integer, nullable=True)
+    alert_radius_km = Column(Integer, nullable=True)
+    status = Column(Enum(LostPetStatus), default=LostPetStatus.active, nullable=False)
+    reported_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    reporter = relationship("User", back_populates="lost_pet_reports")
+    pet = relationship("Pet")
 
 
 class Notification(Base):

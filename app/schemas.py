@@ -191,6 +191,48 @@ class AdoptionOut(BaseModel):
 
 # ── Notification ──────────────────────────────────────────────────────────────
 
+class LostPetCreate(BaseModel):
+    pet_id: Optional[str] = None
+    name: str
+    type: str
+    description: str
+    phone: str
+    photos: List[str] = []
+    location: str
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    reward_amount: Optional[int] = None
+    alert_radius_km: Optional[int] = None
+
+
+class LostPetStatusUpdate(BaseModel):
+    status: str
+
+
+class LostPetOut(BaseModel):
+    id: str
+    reporter_id: str
+    reporter_name: str
+    reporter_photo: Optional[str]
+    pet_id: Optional[str]
+    name: str
+    type: str
+    description: str
+    phone: str
+    photos: List[str]
+    location: str
+    latitude: Optional[float]
+    longitude: Optional[float]
+    reward_amount: Optional[int]
+    alert_radius_km: Optional[int]
+    status: str
+    reported_at: datetime
+    distance_km: Optional[float] = None
+
+    class Config:
+        from_attributes = True
+
+
 class NotificationOut(BaseModel):
     id: str
     type: str

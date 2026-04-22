@@ -12,6 +12,7 @@ from .routers import (
     notifications_router,
     dev_router,
     patitas_router,
+    lost_pets_router,
 )
 
 # Create all tables
@@ -42,6 +43,7 @@ app.include_router(upload_router.router)
 app.include_router(notifications_router.router)
 app.include_router(dev_router.router)
 app.include_router(patitas_router.router)
+app.include_router(lost_pets_router.router)
 
 
 @app.get("/health")
