@@ -220,6 +220,14 @@ def update_lost_pet_status(
         raise HTTPException(status_code=400, detail="Estado invalido")
 
     lost_pet.status = models.LostPetStatus(payload.status)
+    if lost_pet.pet_id:
+        pet = (
+            db.query(models.Pet)
+            .filter(models.Pet.id == lost_pet.pet_id, models.Pet.owner_id == current_user.id)
+            .first()
+        )
+        if pet:
+            pet.is_active = lost_pet.status == models.LostPetStatus.found
     db.commit()
     db.refresh(lost_pet)
     return _lost_pet_to_out(lost_pet, current_user)
