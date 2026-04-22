@@ -1,4 +1,5 @@
 import hmac
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 import requests
@@ -18,6 +19,28 @@ from ..patitas_service import (
 )
 
 router = APIRouter(tags=["patitas"])
+
+ADVANCED_FILTERS_ACTION = "matching_advanced_filters_30d"
+ADVANCED_FILTERS_DESCRIPTION = "Filtros avanzados 30 dias"
+
+
+def _advanced_filters_expires_at(db: Session, user_id: str):
+    since = datetime.utcnow() - timedelta(days=30)
+    transaction = (
+        db.query(models.PatitasTransaction)
+        .filter(
+            models.PatitasTransaction.usuario_id == user_id,
+            models.PatitasTransaction.tipo == models.PatitasTransactionType.uso,
+            models.PatitasTransaction.estado == models.PatitasTransactionStatus.used,
+            models.PatitasTransaction.descripcion == ADVANCED_FILTERS_DESCRIPTION,
+            models.PatitasTransaction.fecha >= since,
+        )
+        .order_by(models.PatitasTransaction.fecha.desc())
+        .first()
+    )
+    if not transaction:
+        return None
+    return transaction.fecha + timedelta(days=30)
 
 
 def _pack_out(pack):
@@ -136,6 +159,42 @@ def consumir(
         patitas=current_user.patitas or 0,
         transaction=transaction,
     )
+
+
+@router.get("/patitas/advanced-filters")
+def advanced_filters_status(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    expires_at = _advanced_filters_expires_at(db, current_user.id)
+    return {
+        "active": expires_at is not None and expires_at > datetime.utcnow(),
+        "expires_at": expires_at,
+        "cost": 30,
+    }
+
+
+@router.post("/patitas/advanced-filters/activate")
+def activate_advanced_filters(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    expires_at = _advanced_filters_expires_at(db, current_user.id)
+    if expires_at is None or expires_at <= datetime.utcnow():
+        consumir_patitas(
+            db,
+            current_user,
+            ADVANCED_FILTERS_ACTION,
+            descripcion=ADVANCED_FILTERS_DESCRIPTION,
+        )
+        db.refresh(current_user)
+        expires_at = _advanced_filters_expires_at(db, current_user.id)
+    return {
+        "active": True,
+        "expires_at": expires_at,
+        "cost": 30,
+        "patitas": current_user.patitas or 0,
+    }
 
 
 @router.post("/crear-preferencia", response_model=schemas.PreferenciaPatitasOut)

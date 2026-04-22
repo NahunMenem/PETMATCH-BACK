@@ -149,6 +149,9 @@ def get_my_pets(
 @router.get("/explore", response_model=List[schemas.PetOut])
 def explore_pets(
     type: Optional[str] = Query(None),
+    breed: Optional[str] = Query(None),
+    vaccinated: Optional[bool] = Query(None),
+    sterilized: Optional[bool] = Query(None),
     lat: Optional[float] = Query(None),
     lng: Optional[float] = Query(None),
     max_distance: int = Query(50, ge=1, le=500),
@@ -180,6 +183,12 @@ def explore_pets(
 
     if type in ("dog", "cat"):
         query = query.filter(models.Pet.type == type)
+    if breed:
+        query = query.filter(models.Pet.breed.ilike(f"%{breed.strip()}%"))
+    if vaccinated is True:
+        query = query.filter(models.Pet.vaccines_up_to_date == True)
+    if sterilized is True:
+        query = query.filter(models.Pet.sterilized == True)
 
     user_lat = lat if lat is not None else current_user.latitude
     user_lng = lng if lng is not None else current_user.longitude

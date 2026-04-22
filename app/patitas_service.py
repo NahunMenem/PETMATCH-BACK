@@ -34,6 +34,7 @@ PATITAS_COSTS = {
     "adoption_feature_24h": 50,
     "matching_unlimited_likes_1d": 40,
     "matching_see_likes": 30,
+    "matching_advanced_filters_30d": 30,
     "profile_boost": 25,
     "profile_strong_boost": 60,
 }
