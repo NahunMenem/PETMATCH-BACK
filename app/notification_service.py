@@ -4,6 +4,7 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from . import models
+from .firebase_push import send_push_to_user
 
 
 TYPE_NEW_MATCH = "new_match"
@@ -35,6 +36,19 @@ def create_notification(
         action_id=action_id,
     )
     db.add(notification)
+    db.flush()
+    send_push_to_user(
+        db,
+        user_id=user_id,
+        title=title,
+        body=body,
+        image_url=image_url,
+        data={
+            "notification_id": notification.id,
+            "type": type,
+            "action_id": action_id,
+        },
+    )
     return notification
 
 

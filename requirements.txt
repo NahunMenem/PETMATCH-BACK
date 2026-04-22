@@ -17,3 +17,4 @@ pydantic[email]==2.9.2
 pydantic-settings==2.5.2
 cloudinary==1.41.0
 geopy==2.4.1
+firebase-admin==6.6.0

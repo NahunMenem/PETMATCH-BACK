@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -47,5 +48,47 @@ def mark_read(
         models.Notification.id == notification_id,
         models.Notification.user_id == current_user.id,
     ).update({"is_read": True})
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/device-token")
+def register_device_token(
+    payload: schemas.DeviceTokenIn,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    token = payload.token.strip()
+    existing = (
+        db.query(models.DeviceToken)
+        .filter(models.DeviceToken.token == token)
+        .first()
+    )
+    if existing:
+        existing.user_id = current_user.id
+        existing.platform = payload.platform
+        existing.updated_at = datetime.utcnow()
+    else:
+        db.add(
+            models.DeviceToken(
+                user_id=current_user.id,
+                token=token,
+                platform=payload.platform,
+            )
+        )
+    db.commit()
+    return {"ok": True}
+
+
+@router.delete("/device-token/{token}")
+def unregister_device_token(
+    token: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    db.query(models.DeviceToken).filter(
+        models.DeviceToken.token == token,
+        models.DeviceToken.user_id == current_user.id,
+    ).delete()
     db.commit()
     return {"ok": True}

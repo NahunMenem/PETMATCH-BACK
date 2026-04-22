@@ -277,6 +277,11 @@ class NotificationOut(BaseModel):
         from_attributes = True
 
 
+class DeviceTokenIn(BaseModel):
+    token: str
+    platform: Optional[str] = None
+
+
 # Patitas
 
 class PatitasPackOut(BaseModel):
