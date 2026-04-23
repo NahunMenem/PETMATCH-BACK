@@ -82,13 +82,36 @@ def run_startup_migrations() -> None:
                     ")"
                 )
             )
+        else:
+            conn.execute(
+                text(
+                    "ALTER TABLE patitas_packs "
+                    "ALTER COLUMN created_at SET DEFAULT CURRENT_TIMESTAMP"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE patitas_packs "
+                    "ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP"
+                )
+            )
         conn.execute(
             text(
-                "INSERT INTO patitas_packs (id, name, price, base_patitas, bonus_patitas, is_active) "
+                "UPDATE patitas_packs "
+                "SET created_at = COALESCE(created_at, CURRENT_TIMESTAMP), "
+                "updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP) "
+                "WHERE created_at IS NULL OR updated_at IS NULL"
+            )
+        )
+        conn.execute(
+            text(
+                "INSERT INTO patitas_packs ("
+                "id, name, price, base_patitas, bonus_patitas, is_active, created_at, updated_at"
+                ") "
                 "VALUES "
-                "('starter', 'Starter', 3000, 100, 0, TRUE), "
-                "('popular', 'Popular', 6000, 250, 25, TRUE), "
-                "('pro', 'Pro', 10000, 500, 100, TRUE) "
+                "('starter', 'Starter', 3000, 100, 0, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), "
+                "('popular', 'Popular', 6000, 250, 25, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), "
+                "('pro', 'Pro', 10000, 500, 100, TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) "
                 "ON CONFLICT (id) DO NOTHING"
             )
         )
