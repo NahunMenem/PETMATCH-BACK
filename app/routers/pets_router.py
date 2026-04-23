@@ -138,6 +138,15 @@ def _received_likes_response(
         liker_pet = like.liker_pet
         liked_pet = like.liked_pet
         photo = (liker_pet.photos or [None])[0]
+        response_sent = (
+            db.query(models.PetLike.id)
+            .filter(
+                models.PetLike.liker_pet_id.in_(my_pet_ids),
+                models.PetLike.liked_pet_id == liker_pet.id,
+            )
+            .first()
+            is not None
+        )
         if unlocked:
             items.append(
                 schemas.ReceivedLikeOut(
@@ -153,6 +162,7 @@ def _received_likes_response(
                     sterilized=liker_pet.sterilized,
                     photos=liker_pet.photos or [],
                     description=liker_pet.description,
+                    response_sent=response_sent,
                     owner_name=liker_pet.owner.name,
                     liked_my_pet_id=liked_pet.id,
                     liked_my_pet_name=liked_pet.name,

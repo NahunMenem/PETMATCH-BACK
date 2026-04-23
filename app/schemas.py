@@ -141,6 +141,7 @@ class ReceivedLikeOut(BaseModel):
     sterilized: Optional[bool] = None
     photos: List[str] = []
     description: Optional[str] = None
+    response_sent: Optional[bool] = None
     owner_name: Optional[str] = None
     liked_my_pet_id: Optional[str] = None
     liked_my_pet_name: Optional[str] = None
