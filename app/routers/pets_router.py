@@ -309,6 +309,7 @@ def get_my_pets(
 def explore_pets(
     type: Optional[str] = Query(None),
     breed: Optional[str] = Query(None),
+    sex: Optional[str] = Query(None),
     vaccinated: Optional[bool] = Query(None),
     sterilized: Optional[bool] = Query(None),
     lat: Optional[float] = Query(None),
@@ -349,6 +350,8 @@ def explore_pets(
         query = query.filter(models.Pet.type == type)
     if breed:
         query = query.filter(models.Pet.breed.ilike(f"%{breed.strip()}%"))
+    if sex in ("male", "female"):
+        query = query.filter(models.Pet.sex == sex)
     if vaccinated is True:
         query = query.filter(models.Pet.vaccines_up_to_date == True)
     if sterilized is True:
