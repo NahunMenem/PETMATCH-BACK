@@ -20,6 +20,8 @@ router = APIRouter(prefix="/pets", tags=["pets"])
 
 SEE_LIKES_ACTION = "matching_see_likes"
 SUPER_LIKE_ACTION = "matching_super_like"
+ADVANCED_FILTERS_DESCRIPTION = "Filtros avanzados 30 dias"
+FREE_EXPLORE_DISTANCE_KM = 10
 
 
 def _pet_to_out(pet: models.Pet, distance_km: Optional[float] = None) -> schemas.PetOut:
@@ -81,6 +83,22 @@ def _likes_unlocked(db: Session, user: models.User) -> bool:
             models.PatitasTransaction.tipo == models.PatitasTransactionType.uso,
             models.PatitasTransaction.estado == models.PatitasTransactionStatus.used,
             models.PatitasTransaction.descripcion.in_(descriptions),
+            models.PatitasTransaction.fecha >= since,
+        )
+        .first()
+        is not None
+    )
+
+
+def _advanced_filters_unlocked(db: Session, user: models.User) -> bool:
+    since = datetime.utcnow() - timedelta(days=30)
+    return (
+        db.query(models.PatitasTransaction.id)
+        .filter(
+            models.PatitasTransaction.usuario_id == user.id,
+            models.PatitasTransaction.tipo == models.PatitasTransactionType.uso,
+            models.PatitasTransaction.estado == models.PatitasTransactionStatus.used,
+            models.PatitasTransaction.descripcion == ADVANCED_FILTERS_DESCRIPTION,
             models.PatitasTransaction.fecha >= since,
         )
         .first()
@@ -281,6 +299,11 @@ def explore_pets(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    advanced_filters_active = _advanced_filters_unlocked(db, current_user)
+    effective_max_distance = (
+        max_distance if advanced_filters_active else min(max_distance, FREE_EXPLORE_DISTANCE_KM)
+    )
+
     # Get current user's pet IDs to exclude
     my_pet_ids = [
         p.id for p in db.query(models.Pet.id)
@@ -320,7 +343,7 @@ def explore_pets(
     for pet in candidates:
         distance = _distance_km(user_lat, user_lng, pet.owner.latitude, pet.owner.longitude)
         if user_lat is not None and user_lng is not None:
-            if distance is None or distance > max_distance:
+            if distance is None or distance > effective_max_distance:
                 continue
         items.append((distance if distance is not None else 999999.0, pet, distance))
 
