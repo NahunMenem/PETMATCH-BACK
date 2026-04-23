@@ -24,6 +24,26 @@ def run_startup_migrations() -> None:
                     "ADD COLUMN patitas INTEGER NOT NULL DEFAULT 0"
                 )
             )
+        if "referral_code" not in user_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE users "
+                    "ADD COLUMN referral_code VARCHAR"
+                )
+            )
+        conn.execute(
+            text(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_referral_code "
+                "ON users (referral_code)"
+            )
+        )
+        if "referred_by_user_id" not in user_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE users "
+                    "ADD COLUMN referred_by_user_id VARCHAR REFERENCES users(id)"
+                )
+            )
         if "phone" not in adoption_columns:
             conn.execute(
                 text(
@@ -54,3 +74,10 @@ def run_startup_migrations() -> None:
                     "ADD COLUMN is_super_like BOOLEAN NOT NULL DEFAULT FALSE"
                 )
             )
+        conn.execute(
+            text(
+                "UPDATE users "
+                "SET referral_code = UPPER(SUBSTRING(REPLACE(id, '-', '') FROM 1 FOR 8)) "
+                "WHERE referral_code IS NULL"
+            )
+        )

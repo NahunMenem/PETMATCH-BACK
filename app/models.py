@@ -69,6 +69,8 @@ class User(Base):
     is_verified = Column(Boolean, default=False)
     is_premium = Column(Boolean, default=False)
     patitas = Column(Integer, nullable=False, default=0)
+    referral_code = Column(String, unique=True, nullable=True, index=True)
+    referred_by_user_id = Column(String, ForeignKey("users.id"), nullable=True)
     google_id = Column(String, unique=True, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

@@ -441,8 +441,18 @@ def update_pet(
     if not pet:
         raise HTTPException(status_code=404, detail="Mascota no encontrada")
 
+    was_active = pet.is_active
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(pet, field, value)
+
+    # If the pet is reactivated for matching, clear prior dislikes so it can
+    # re-enter explore stacks for people who had previously dismissed it.
+    if not was_active and pet.is_active:
+        db.query(models.PetLike).filter(
+            models.PetLike.liked_pet_id == pet.id,
+            models.PetLike.is_dislike == True,
+        ).delete(synchronize_session=False)
+
     db.commit()
     db.refresh(pet)
     return _pet_to_out(pet)

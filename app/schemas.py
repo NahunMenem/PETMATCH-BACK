@@ -9,6 +9,7 @@ class UserRegister(BaseModel):
     name: str
     email: EmailStr
     password: str
+    referral_code: Optional[str] = None
 
 
 class UserLogin(BaseModel):
@@ -19,6 +20,7 @@ class UserLogin(BaseModel):
 class GoogleAuth(BaseModel):
     id_token: Optional[str] = None
     access_token: Optional[str] = None
+    referral_code: Optional[str] = None
 
 
 class TokenRefresh(BaseModel):
@@ -36,6 +38,7 @@ class UserOut(BaseModel):
     is_verified: bool
     is_premium: bool
     patitas: int = 0
+    referral_code: Optional[str] = None
     created_at: datetime
 
     class Config:
@@ -53,6 +56,13 @@ class UserLocationUpdate(BaseModel):
     latitude: float
     longitude: float
     location: Optional[str] = None
+
+
+class ReferralSummaryOut(BaseModel):
+    referral_code: str
+    referred_count: int
+    earned_patitas: int
+    share_message: str
 
 
 # ── Pet ───────────────────────────────────────────────────────────────────────

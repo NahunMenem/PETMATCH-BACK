@@ -18,6 +18,52 @@ from ..auth import (
 from ..config import settings
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+REFERRAL_BONUS_PATITAS = 10
+
+
+def _generate_referral_code() -> str:
+    return uuid.uuid4().hex[:8].upper()
+
+
+def _ensure_referral_code(db: Session, user: models.User) -> None:
+    if user.referral_code:
+        return
+
+    code = _generate_referral_code()
+    while db.query(models.User.id).filter(models.User.referral_code == code).first():
+        code = _generate_referral_code()
+    user.referral_code = code
+
+
+def _grant_referral_bonus(
+    db: Session,
+    *,
+    referrer: models.User,
+    referred_user: models.User,
+) -> None:
+    referrer.patitas = (referrer.patitas or 0) + REFERRAL_BONUS_PATITAS
+    referred_user.patitas = (referred_user.patitas or 0) + REFERRAL_BONUS_PATITAS
+
+    db.add(
+        models.PatitasTransaction(
+            id=str(uuid.uuid4()),
+            usuario_id=referrer.id,
+            tipo=models.PatitasTransactionType.compra,
+            cantidad=REFERRAL_BONUS_PATITAS,
+            descripcion=f"Bono por referido de {referred_user.email}",
+            estado=models.PatitasTransactionStatus.approved,
+        )
+    )
+    db.add(
+        models.PatitasTransaction(
+            id=str(uuid.uuid4()),
+            usuario_id=referred_user.id,
+            tipo=models.PatitasTransactionType.compra,
+            cantidad=REFERRAL_BONUS_PATITAS,
+            descripcion=f"Bono de bienvenida por referido de {referrer.email}",
+            estado=models.PatitasTransactionStatus.approved,
+        )
+    )
 
 
 def _google_userinfo_from_access_token(access_token: str) -> dict:
@@ -49,13 +95,32 @@ def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Ya existe una cuenta con ese email",
         )
+    referrer = None
+    if data.referral_code:
+        referral_code = data.referral_code.strip().upper()
+        referrer = (
+            db.query(models.User)
+            .filter(models.User.referral_code == referral_code)
+            .first()
+        )
+        if not referrer:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Codigo de referido invalido",
+            )
+
     user = models.User(
         id=str(uuid.uuid4()),
         email=data.email,
         hashed_password=hash_password(data.password),
         name=data.name,
+        referred_by_user_id=referrer.id if referrer else None,
     )
+    _ensure_referral_code(db, user)
     db.add(user)
+    db.flush()
+    if referrer:
+        _grant_referral_bonus(db, referrer=referrer, referred_user=user)
     db.commit()
     db.refresh(user)
     return _build_auth_response(user)
@@ -119,6 +184,20 @@ def google_auth(data: schemas.GoogleAuth, db: Session = Depends(get_db)):
     user = db.query(models.User).filter(models.User.google_id == google_id).first()
     if not user:
         user = db.query(models.User).filter(models.User.email == email).first()
+    referrer = None
+    if data.referral_code:
+        referral_code = data.referral_code.strip().upper()
+        referrer = (
+            db.query(models.User)
+            .filter(models.User.referral_code == referral_code)
+            .first()
+        )
+        if not referrer:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Codigo de referido invalido",
+            )
+    is_new_user = user is None
     if not user:
         user = models.User(
             id=str(uuid.uuid4()),
@@ -127,12 +206,17 @@ def google_auth(data: schemas.GoogleAuth, db: Session = Depends(get_db)):
             name=name,
             photo_url=photo_url,
             is_verified=True,
+            referred_by_user_id=referrer.id if referrer else None,
         )
         db.add(user)
     else:
         user.google_id = google_id
         if photo_url and not user.photo_url:
             user.photo_url = photo_url
+    _ensure_referral_code(db, user)
+    db.flush()
+    if is_new_user and referrer:
+        _grant_referral_bonus(db, referrer=referrer, referred_user=user)
     db.commit()
     db.refresh(user)
     return _build_auth_response(user)
@@ -158,6 +242,33 @@ def refresh_token(data: schemas.TokenRefresh, db: Session = Depends(get_db)):
 @router.get("/me", response_model=schemas.UserOut)
 def me(current_user: models.User = Depends(get_current_user)):
     return current_user
+
+
+@router.get("/referral/me", response_model=schemas.ReferralSummaryOut)
+def my_referral_summary(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _ensure_referral_code(db, current_user)
+    db.commit()
+    db.refresh(current_user)
+
+    referred_count = (
+        db.query(models.User.id)
+        .filter(models.User.referred_by_user_id == current_user.id)
+        .count()
+    )
+    earned_patitas = referred_count * REFERRAL_BONUS_PATITAS
+    share_message = (
+        f"Sumate a PawMatch con mi codigo {current_user.referral_code} y ganamos "
+        f"{REFERRAL_BONUS_PATITAS} Patitas cada uno."
+    )
+    return schemas.ReferralSummaryOut(
+        referral_code=current_user.referral_code,
+        referred_count=referred_count,
+        earned_patitas=earned_patitas,
+        share_message=share_message,
+    )
 
 
 @router.patch("/me/location", response_model=schemas.UserOut)
