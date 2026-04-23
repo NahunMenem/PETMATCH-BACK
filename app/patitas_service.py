@@ -34,6 +34,7 @@ PATITAS_COSTS = {
     "adoption_feature_24h": 50,
     "matching_unlimited_likes_1d": 40,
     "matching_see_likes": 30,
+    "matching_super_like": 10,
     "matching_advanced_filters_30d": 30,
     "profile_boost": 25,
     "profile_strong_boost": 60,
@@ -47,6 +48,7 @@ PATITAS_DESCRIPTIONS = {
     "adoption_feature_24h": "Destacar adopción 24hs",
     "matching_unlimited_likes_1d": "Likes ilimitados 1 día",
     "matching_see_likes": "Ver quién dio like",
+    "matching_super_like": "Super Like enviado",
     "profile_boost": "Boost de perfil activado",
     "profile_strong_boost": "Boost fuerte activado",
 }
@@ -170,3 +172,4 @@ def consumir_patitas(
     db.commit()
     db.refresh(transaction)
     return transaction
+

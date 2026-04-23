@@ -19,6 +19,7 @@ from ..patitas_service import PATITAS_DESCRIPTIONS, consumir_patitas
 router = APIRouter(prefix="/pets", tags=["pets"])
 
 SEE_LIKES_ACTION = "matching_see_likes"
+SUPER_LIKE_ACTION = "matching_super_like"
 
 
 def _pet_to_out(pet: models.Pet, distance_km: Optional[float] = None) -> schemas.PetOut:
@@ -138,6 +139,121 @@ def _received_likes_response(
         unlocked=unlocked,
         likes=items[:20] if unlocked else items[:4],
     )
+
+
+def _create_like(
+    *,
+    data: schemas.SwipeAction,
+    current_user: models.User,
+    db: Session,
+    is_super_like: bool = False,
+):
+    my_pet = db.query(models.Pet).filter(
+        models.Pet.owner_id == current_user.id,
+        models.Pet.is_active == True,
+    ).first()
+    if not my_pet:
+        raise HTTPException(status_code=400, detail="No tenes mascota activa")
+
+    liked_pet = db.query(models.Pet).filter(models.Pet.id == data.pet_id).first()
+    if not liked_pet:
+        raise HTTPException(status_code=404, detail="Mascota no encontrada")
+
+    if liked_pet.owner_id == current_user.id:
+        raise HTTPException(status_code=400, detail="No podes likear tu mascota")
+
+    existing = db.query(models.PetLike).filter(
+        models.PetLike.liker_pet_id == my_pet.id,
+        models.PetLike.liked_pet_id == liked_pet.id,
+    ).first()
+    if existing:
+        existing.is_dislike = False
+        existing.is_super_like = existing.is_super_like or is_super_like
+    else:
+        like = models.PetLike(
+            id=str(uuid.uuid4()),
+            liker_pet_id=my_pet.id,
+            liked_pet_id=liked_pet.id,
+            is_dislike=False,
+            is_super_like=is_super_like,
+        )
+        db.add(like)
+    db.flush()
+
+    create_notification(
+        db,
+        user_id=liked_pet.owner_id,
+        type=TYPE_LIKE,
+        title="Super Like recibido" if is_super_like else "Nuevo like",
+        body=(
+            f"A {my_pet.name} le encanto {liked_pet.name}."
+            if is_super_like
+            else f"A {my_pet.name} le gusto {liked_pet.name}."
+        ),
+        image_url=(my_pet.photos or [None])[0],
+        action_id=my_pet.id,
+    )
+
+    mutual = db.query(models.PetLike).filter(
+        models.PetLike.liker_pet_id == liked_pet.id,
+        models.PetLike.liked_pet_id == my_pet.id,
+        models.PetLike.is_dislike == False,
+    ).first()
+
+    if mutual:
+        existing_conversation = (
+            db.query(models.Conversation)
+            .filter(
+                (
+                    (models.Conversation.user1_id == current_user.id)
+                    & (models.Conversation.user2_id == liked_pet.owner_id)
+                )
+                | (
+                    (models.Conversation.user1_id == liked_pet.owner_id)
+                    & (models.Conversation.user2_id == current_user.id)
+                )
+            )
+            .first()
+        )
+        conv = existing_conversation or models.Conversation(
+            id=str(uuid.uuid4()),
+            user1_id=current_user.id,
+            user2_id=liked_pet.owner_id,
+        )
+        if not existing_conversation:
+            db.add(conv)
+            db.flush()
+
+        match = models.Match(
+            id=str(uuid.uuid4()),
+            pet1_id=my_pet.id,
+            pet2_id=liked_pet.id,
+            conversation_id=conv.id,
+        )
+        db.add(match)
+        create_notification(
+            db,
+            user_id=current_user.id,
+            type=TYPE_NEW_MATCH,
+            title="Nuevo match",
+            body=f"{my_pet.name} y {liked_pet.name} hicieron match.",
+            image_url=(liked_pet.photos or [None])[0],
+            action_id=conv.id,
+        )
+        create_notification(
+            db,
+            user_id=liked_pet.owner_id,
+            type=TYPE_NEW_MATCH,
+            title="Nuevo match",
+            body=f"{liked_pet.name} y {my_pet.name} hicieron match.",
+            image_url=(my_pet.photos or [None])[0],
+            action_id=conv.id,
+        )
+        db.commit()
+        return {"match": True, "match_id": match.id, "conversation_id": conv.id}
+
+    db.commit()
+    return {"match": False}
 
 
 @router.get("/mine", response_model=List[schemas.PetOut])
@@ -370,6 +486,36 @@ def like_pet(
 
     db.commit()
     return {"match": False}
+
+
+@router.post("/super-like")
+def super_like_pet(
+    data: schemas.SwipeAction,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if not db.query(models.Pet.id).filter(
+        models.Pet.owner_id == current_user.id,
+        models.Pet.is_active == True,
+    ).first():
+        raise HTTPException(status_code=400, detail="No tenes mascota activa")
+    target_pet = db.query(models.Pet).filter(models.Pet.id == data.pet_id).first()
+    if not target_pet:
+        raise HTTPException(status_code=404, detail="Mascota no encontrada")
+    if target_pet.owner_id == current_user.id:
+        raise HTTPException(status_code=400, detail="No podes likear tu mascota")
+    consumir_patitas(
+        db,
+        current_user,
+        SUPER_LIKE_ACTION,
+        descripcion=PATITAS_DESCRIPTIONS[SUPER_LIKE_ACTION],
+    )
+    return _create_like(
+        data=data,
+        current_user=current_user,
+        db=db,
+        is_super_like=True,
+    )
 
 
 @router.post("/dislike")

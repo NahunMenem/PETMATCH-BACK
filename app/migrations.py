@@ -10,6 +10,11 @@ def run_startup_migrations() -> None:
         column["name"] for column in inspector.get_columns("adoptions")
     }
     table_names = set(inspector.get_table_names())
+    pet_like_columns = (
+        {column["name"] for column in inspector.get_columns("pet_likes")}
+        if "pet_likes" in table_names
+        else set()
+    )
 
     with engine.begin() as conn:
         if "patitas" not in user_columns:
@@ -41,4 +46,11 @@ def run_startup_migrations() -> None:
             )
             conn.execute(
                 text("CREATE INDEX ix_device_tokens_token ON device_tokens (token)")
+            )
+        if "pet_likes" in table_names and "is_super_like" not in pet_like_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE pet_likes "
+                    "ADD COLUMN is_super_like BOOLEAN NOT NULL DEFAULT FALSE"
+                )
             )

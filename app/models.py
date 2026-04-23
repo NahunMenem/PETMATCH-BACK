@@ -132,6 +132,7 @@ class PetLike(Base):
     liker_pet_id = Column(String, ForeignKey("pets.id"), nullable=False)
     liked_pet_id = Column(String, ForeignKey("pets.id"), nullable=False)
     is_dislike = Column(Boolean, default=False)
+    is_super_like = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     liker_pet = relationship("Pet", foreign_keys=[liker_pet_id], back_populates="likes_given")
