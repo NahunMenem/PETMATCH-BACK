@@ -155,7 +155,10 @@ def _create_like(
     if not my_pet:
         raise HTTPException(status_code=400, detail="No tenes mascota activa")
 
-    liked_pet = db.query(models.Pet).filter(models.Pet.id == data.pet_id).first()
+    liked_pet = db.query(models.Pet).filter(
+        models.Pet.id == data.pet_id,
+        models.Pet.is_active == True,
+    ).first()
     if not liked_pet:
         raise HTTPException(status_code=404, detail="Mascota no encontrada")
 
@@ -406,86 +409,7 @@ def like_pet(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    # Get user's first active pet as the liker
-    my_pet = db.query(models.Pet).filter(
-        models.Pet.owner_id == current_user.id,
-        models.Pet.is_active == True,
-    ).first()
-    if not my_pet:
-        raise HTTPException(status_code=400, detail="No tenés mascota activa")
-
-    liked_pet = db.query(models.Pet).filter(models.Pet.id == data.pet_id).first()
-    if not liked_pet:
-        raise HTTPException(status_code=404, detail="Mascota no encontrada")
-
-    # Save like
-    like = models.PetLike(
-        id=str(uuid.uuid4()),
-        liker_pet_id=my_pet.id,
-        liked_pet_id=liked_pet.id,
-        is_dislike=False,
-    )
-    db.add(like)
-    db.flush()
-    if liked_pet.owner_id != current_user.id:
-        create_notification(
-            db,
-            user_id=liked_pet.owner_id,
-            type=TYPE_LIKE,
-            title="Nuevo like",
-            body=f"A {my_pet.name} le gusto {liked_pet.name}.",
-            image_url=(my_pet.photos or [None])[0],
-            action_id=my_pet.id,
-        )
-
-    # Check for mutual like (match)
-    mutual = db.query(models.PetLike).filter(
-        models.PetLike.liker_pet_id == liked_pet.id,
-        models.PetLike.liked_pet_id == my_pet.id,
-        models.PetLike.is_dislike == False,
-    ).first()
-
-    if mutual:
-        # Create conversation
-        conv = models.Conversation(
-            id=str(uuid.uuid4()),
-            user1_id=current_user.id,
-            user2_id=liked_pet.owner_id,
-        )
-        db.add(conv)
-        db.flush()
-
-        # Create match
-        match = models.Match(
-            id=str(uuid.uuid4()),
-            pet1_id=my_pet.id,
-            pet2_id=liked_pet.id,
-            conversation_id=conv.id,
-        )
-        db.add(match)
-        create_notification(
-            db,
-            user_id=current_user.id,
-            type=TYPE_NEW_MATCH,
-            title="Nuevo match",
-            body=f"{my_pet.name} y {liked_pet.name} hicieron match.",
-            image_url=(liked_pet.photos or [None])[0],
-            action_id=conv.id,
-        )
-        create_notification(
-            db,
-            user_id=liked_pet.owner_id,
-            type=TYPE_NEW_MATCH,
-            title="Nuevo match",
-            body=f"{liked_pet.name} y {my_pet.name} hicieron match.",
-            image_url=(my_pet.photos or [None])[0],
-            action_id=conv.id,
-        )
-        db.commit()
-        return {"match": True, "match_id": match.id, "conversation_id": conv.id}
-
-    db.commit()
-    return {"match": False}
+    return _create_like(data=data, current_user=current_user, db=db)
 
 
 @router.post("/super-like")
@@ -499,7 +423,10 @@ def super_like_pet(
         models.Pet.is_active == True,
     ).first():
         raise HTTPException(status_code=400, detail="No tenes mascota activa")
-    target_pet = db.query(models.Pet).filter(models.Pet.id == data.pet_id).first()
+    target_pet = db.query(models.Pet).filter(
+        models.Pet.id == data.pet_id,
+        models.Pet.is_active == True,
+    ).first()
     if not target_pet:
         raise HTTPException(status_code=404, detail="Mascota no encontrada")
     if target_pet.owner_id == current_user.id:
@@ -531,12 +458,29 @@ def dislike_pet(
     if not my_pet:
         raise HTTPException(status_code=400, detail="No tenés mascota activa")
 
-    dislike = models.PetLike(
-        id=str(uuid.uuid4()),
-        liker_pet_id=my_pet.id,
-        liked_pet_id=data.pet_id,
-        is_dislike=True,
-    )
-    db.add(dislike)
+    liked_pet = db.query(models.Pet).filter(
+        models.Pet.id == data.pet_id,
+        models.Pet.is_active == True,
+    ).first()
+    if not liked_pet:
+        raise HTTPException(status_code=404, detail="Mascota no encontrada")
+    if liked_pet.owner_id == current_user.id:
+        raise HTTPException(status_code=400, detail="No podes descartar tu mascota")
+
+    existing = db.query(models.PetLike).filter(
+        models.PetLike.liker_pet_id == my_pet.id,
+        models.PetLike.liked_pet_id == liked_pet.id,
+    ).first()
+    if existing:
+        existing.is_dislike = True
+        existing.is_super_like = False
+    else:
+        dislike = models.PetLike(
+            id=str(uuid.uuid4()),
+            liker_pet_id=my_pet.id,
+            liked_pet_id=liked_pet.id,
+            is_dislike=True,
+        )
+        db.add(dislike)
     db.commit()
     return {"ok": True}
