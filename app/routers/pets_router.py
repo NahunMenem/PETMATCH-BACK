@@ -448,6 +448,58 @@ def update_pet(
     return _pet_to_out(pet)
 
 
+@router.delete("/{pet_id}")
+def delete_pet(
+    pet_id: str,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    pet = (
+        db.query(models.Pet)
+        .filter(
+            models.Pet.id == pet_id,
+            models.Pet.owner_id == current_user.id,
+        )
+        .first()
+    )
+    if not pet:
+        raise HTTPException(status_code=404, detail="Mascota no encontrada")
+
+    conversation_ids = [
+        conversation_id
+        for (conversation_id,) in db.query(models.Match.conversation_id)
+        .filter(
+            models.Match.conversation_id.isnot(None),
+            (models.Match.pet1_id == pet_id) | (models.Match.pet2_id == pet_id),
+        )
+        .all()
+    ]
+
+    db.query(models.LostPet).filter(models.LostPet.pet_id == pet_id).update(
+        {"pet_id": None},
+        synchronize_session=False,
+    )
+    db.query(models.PetLike).filter(
+        (models.PetLike.liker_pet_id == pet_id)
+        | (models.PetLike.liked_pet_id == pet_id)
+    ).delete(synchronize_session=False)
+    db.query(models.Match).filter(
+        (models.Match.pet1_id == pet_id) | (models.Match.pet2_id == pet_id)
+    ).delete(synchronize_session=False)
+
+    if conversation_ids:
+        db.query(models.Message).filter(
+            models.Message.conversation_id.in_(conversation_ids)
+        ).delete(synchronize_session=False)
+        db.query(models.Conversation).filter(
+            models.Conversation.id.in_(conversation_ids)
+        ).delete(synchronize_session=False)
+
+    db.delete(pet)
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/like")
 def like_pet(
     data: schemas.SwipeAction,

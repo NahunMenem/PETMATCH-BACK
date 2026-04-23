@@ -87,6 +87,26 @@ def _lost_pet_to_out(
     )
 
 
+def _sync_pet_active_state(db: Session, pet_id: Optional[str]) -> None:
+    if not pet_id:
+        return
+
+    pet = db.query(models.Pet).filter(models.Pet.id == pet_id).first()
+    if not pet:
+        return
+
+    has_active_lost_report = (
+        db.query(models.LostPet.id)
+        .filter(
+            models.LostPet.pet_id == pet_id,
+            models.LostPet.status == models.LostPetStatus.active,
+        )
+        .first()
+        is not None
+    )
+    pet.is_active = not has_active_lost_report
+
+
 @router.get("", response_model=List[schemas.LostPetOut])
 def list_lost_pets(
     page: int = Query(1, ge=1),
@@ -152,9 +172,6 @@ def create_lost_pet(
     if not photos and pet:
         photos = pet.photos or []
 
-    if pet:
-        pet.is_active = False
-
     lost_pet = models.LostPet(
         reporter_id=current_user.id,
         pet_id=payload.pet_id,
@@ -170,6 +187,8 @@ def create_lost_pet(
         alert_radius_km=payload.alert_radius_km,
     )
     db.add(lost_pet)
+    db.flush()
+    _sync_pet_active_state(db, payload.pet_id)
     if payload.alert_radius_km:
         consumir_patitas(
             db,
@@ -202,6 +221,70 @@ def create_lost_pet(
     return _lost_pet_to_out(lost_pet, current_user)
 
 
+@router.put("/{lost_pet_id}", response_model=schemas.LostPetOut)
+def update_lost_pet(
+    lost_pet_id: str,
+    payload: schemas.LostPetCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    lost_pet = (
+        db.query(models.LostPet)
+        .filter(
+            models.LostPet.id == lost_pet_id,
+            models.LostPet.reporter_id == current_user.id,
+        )
+        .first()
+    )
+    if not lost_pet:
+        raise HTTPException(status_code=404, detail="Alerta no encontrada")
+
+    if payload.type not in {models.PetType.dog.value, models.PetType.cat.value}:
+        raise HTTPException(status_code=400, detail="Tipo de mascota invalido")
+
+    if payload.alert_radius_km not in (None, 2, 5):
+        raise HTTPException(status_code=400, detail="Radio de alerta invalido")
+
+    pet = None
+    if payload.pet_id:
+        pet = (
+            db.query(models.Pet)
+            .filter(
+                models.Pet.id == payload.pet_id,
+                models.Pet.owner_id == current_user.id,
+            )
+            .first()
+        )
+        if not pet:
+            raise HTTPException(status_code=404, detail="Mascota no encontrada")
+
+    previous_pet_id = lost_pet.pet_id
+    photos = payload.photos or []
+    if not photos and pet:
+        photos = pet.photos or []
+
+    lost_pet.pet_id = payload.pet_id
+    lost_pet.name = payload.name.strip()
+    lost_pet.type = models.PetType(payload.type)
+    lost_pet.description = payload.description.strip()
+    lost_pet.phone = payload.phone.strip()
+    lost_pet.photos = photos
+    lost_pet.location = payload.location.strip()
+    lost_pet.latitude = payload.latitude
+    lost_pet.longitude = payload.longitude
+    lost_pet.reward_amount = payload.reward_amount
+    lost_pet.alert_radius_km = payload.alert_radius_km
+
+    db.flush()
+    _sync_pet_active_state(db, previous_pet_id)
+    if payload.pet_id != previous_pet_id:
+        _sync_pet_active_state(db, payload.pet_id)
+
+    db.commit()
+    db.refresh(lost_pet)
+    return _lost_pet_to_out(lost_pet, current_user)
+
+
 @router.patch("/{lost_pet_id}/status", response_model=schemas.LostPetOut)
 def update_lost_pet_status(
     lost_pet_id: str,
@@ -220,14 +303,7 @@ def update_lost_pet_status(
         raise HTTPException(status_code=400, detail="Estado invalido")
 
     lost_pet.status = models.LostPetStatus(payload.status)
-    if lost_pet.pet_id:
-        pet = (
-            db.query(models.Pet)
-            .filter(models.Pet.id == lost_pet.pet_id, models.Pet.owner_id == current_user.id)
-            .first()
-        )
-        if pet:
-            pet.is_active = lost_pet.status == models.LostPetStatus.found
+    _sync_pet_active_state(db, lost_pet.pet_id)
     db.commit()
     db.refresh(lost_pet)
     return _lost_pet_to_out(lost_pet, current_user)
