@@ -100,6 +100,19 @@ class PatitasTransaction(Base):
     user = relationship("User", back_populates="patitas_transactions")
 
 
+class PatitasPackConfig(Base):
+    __tablename__ = "patitas_packs"
+
+    id = Column(String, primary_key=True)
+    name = Column(String, nullable=False)
+    price = Column(Integer, nullable=False)
+    base_patitas = Column(Integer, nullable=False)
+    bonus_patitas = Column(Integer, nullable=False, default=0)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class Pet(Base):
     __tablename__ = "pets"
 

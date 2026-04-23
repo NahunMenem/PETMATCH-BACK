@@ -21,6 +21,10 @@ from ..models import (
     PetLike,
     User,
 )
+from ..patitas_service import (
+    list_packs as get_patitas_packs_config,
+    update_pack as update_patitas_pack_config,
+)
 
 ADMIN_EMAIL = "nahundeveloper@gmail.com"
 
@@ -47,34 +51,6 @@ class PackUpdate(BaseModel):
 class AddPatitasRequest(BaseModel):
     amount: int
     reason: str = "Asignacion manual admin"
-
-
-_PACKS: dict = {
-    "starter": {
-        "id": "starter",
-        "name": "Starter",
-        "price": 3000,
-        "base_patitas": 100,
-        "bonus_patitas": 0,
-        "is_active": True,
-    },
-    "popular": {
-        "id": "popular",
-        "name": "Popular",
-        "price": 6000,
-        "base_patitas": 250,
-        "bonus_patitas": 25,
-        "is_active": True,
-    },
-    "pro": {
-        "id": "pro",
-        "name": "Pro",
-        "price": 10000,
-        "base_patitas": 500,
-        "bonus_patitas": 100,
-        "is_active": True,
-    },
-}
 
 
 @router.get("/stats")
@@ -387,14 +363,44 @@ def delete_user_cascade(
 
 
 @router.get("/patitas/packs")
-def list_packs(_: User = Depends(get_admin_user)):
-    return list(_PACKS.values())
+def list_packs(
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    return [
+        {
+            "id": pack.id,
+            "name": pack.name,
+            "price": pack.price,
+            "base_patitas": pack.base_patitas,
+            "bonus_patitas": pack.bonus_patitas,
+            "is_active": pack.is_active,
+        }
+        for pack in get_patitas_packs_config(db, include_inactive=True)
+    ]
 
 
 @router.put("/patitas/packs/{pack_id}")
-def update_pack(pack_id: str, body: PackUpdate, _: User = Depends(get_admin_user)):
-    if pack_id not in _PACKS:
-        raise HTTPException(status_code=404, detail=f"Pack '{pack_id}' no encontrado")
-
-    _PACKS[pack_id].update(body.model_dump(exclude_none=True))
-    return _PACKS[pack_id]
+def update_pack(
+    pack_id: str,
+    body: PackUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    pack = update_patitas_pack_config(
+        db,
+        pack_id,
+        name=body.name,
+        price=body.price,
+        base_patitas=body.base_patitas,
+        bonus_patitas=body.bonus_patitas,
+        is_active=body.is_active,
+    )
+    return {
+        "id": pack.id,
+        "name": pack.name,
+        "price": pack.price,
+        "base_patitas": pack.base_patitas,
+        "bonus_patitas": pack.bonus_patitas,
+        "is_active": pack.is_active,
+    }

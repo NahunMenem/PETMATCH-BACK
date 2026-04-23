@@ -67,6 +67,31 @@ def run_startup_migrations() -> None:
             conn.execute(
                 text("CREATE INDEX ix_device_tokens_token ON device_tokens (token)")
             )
+        if "patitas_packs" not in table_names:
+            conn.execute(
+                text(
+                    "CREATE TABLE patitas_packs ("
+                    "id VARCHAR PRIMARY KEY, "
+                    "name VARCHAR NOT NULL, "
+                    "price INTEGER NOT NULL, "
+                    "base_patitas INTEGER NOT NULL, "
+                    "bonus_patitas INTEGER NOT NULL DEFAULT 0, "
+                    "is_active BOOLEAN NOT NULL DEFAULT TRUE, "
+                    "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, "
+                    "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+                    ")"
+                )
+            )
+        conn.execute(
+            text(
+                "INSERT INTO patitas_packs (id, name, price, base_patitas, bonus_patitas, is_active) "
+                "VALUES "
+                "('starter', 'Starter', 3000, 100, 0, TRUE), "
+                "('popular', 'Popular', 6000, 250, 25, TRUE), "
+                "('pro', 'Pro', 10000, 500, 100, TRUE) "
+                "ON CONFLICT (id) DO NOTHING"
+            )
+        )
         if "pet_likes" in table_names and "is_super_like" not in pet_like_columns:
             conn.execute(
                 text(

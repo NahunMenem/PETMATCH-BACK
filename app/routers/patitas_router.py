@@ -11,11 +11,11 @@ from ..auth import get_current_user
 from ..config import settings
 from ..database import get_db
 from ..patitas_service import (
-    PATITAS_PACKS,
     approve_purchase_once,
     consumir_patitas,
     create_pending_purchase,
     get_pack,
+    list_packs as list_patitas_packs,
 )
 
 router = APIRouter(tags=["patitas"])
@@ -120,8 +120,8 @@ def _fetch_mp_payment(payment_id: str, token: str) -> dict[str, Any]:
 
 
 @router.get("/patitas/packs", response_model=list[schemas.PatitasPackOut])
-def list_packs():
-    return [_pack_out(pack) for pack in PATITAS_PACKS.values()]
+def list_packs(db: Session = Depends(get_db)):
+    return [_pack_out(pack) for pack in list_patitas_packs(db, include_inactive=False)]
 
 
 @router.get("/patitas/wallet", response_model=schemas.PatitasWalletOut)
@@ -204,7 +204,7 @@ def crear_preferencia(
     db: Session = Depends(get_db),
 ):
     token = _require_mp_token()
-    pack = get_pack(data.pack_id)
+    pack = get_pack(db, data.pack_id)
     payload = {
         "items": [
             {

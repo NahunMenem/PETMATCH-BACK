@@ -24,6 +24,21 @@ ADVANCED_FILTERS_DESCRIPTION = "Filtros avanzados 30 dias"
 FREE_EXPLORE_DISTANCE_KM = 10
 
 
+def _has_other_active_pet(
+    db: Session,
+    *,
+    owner_id: str,
+    exclude_pet_id: Optional[str] = None,
+) -> bool:
+    query = db.query(models.Pet.id).filter(
+        models.Pet.owner_id == owner_id,
+        models.Pet.is_active == True,
+    )
+    if exclude_pet_id:
+        query = query.filter(models.Pet.id != exclude_pet_id)
+    return query.first() is not None
+
+
 def _pet_to_out(pet: models.Pet, distance_km: Optional[float] = None) -> schemas.PetOut:
     owner = pet.owner
     return schemas.PetOut(
@@ -407,6 +422,7 @@ def create_pet(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    has_active_pet = _has_other_active_pet(db, owner_id=current_user.id)
     pet = models.Pet(
         id=str(uuid.uuid4()),
         owner_id=current_user.id,
@@ -420,6 +436,7 @@ def create_pet(
         sterilized=data.sterilized,
         photos=data.photos,
         description=data.description,
+        is_active=not has_active_pet,
     )
     db.add(pet)
     db.commit()
@@ -442,6 +459,14 @@ def update_pet(
         raise HTTPException(status_code=404, detail="Mascota no encontrada")
 
     was_active = pet.is_active
+    activating_this_pet = data.is_active is True
+    if activating_this_pet:
+        db.query(models.Pet).filter(
+            models.Pet.owner_id == current_user.id,
+            models.Pet.id != pet.id,
+            models.Pet.is_active == True,
+        ).update({"is_active": False}, synchronize_session=False)
+
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(pet, field, value)
 

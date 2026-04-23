@@ -71,6 +71,11 @@ def send_push_to_user(
             image=image_url,
         ),
         data={key: str(value) for key, value in (data or {}).items() if value is not None},
+        apns=messaging.APNSConfig(
+            payload=messaging.APNSPayload(
+                aps=messaging.Aps(sound="alerta.caf")
+            )
+        ),
     )
 
     try:

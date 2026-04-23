@@ -7,24 +7,18 @@ from sqlalchemy.orm import Session
 from . import models
 
 
-@dataclass(frozen=True)
+@dataclass
 class PatitasPack:
     id: str
     name: str
     price: int
     base_patitas: int
     bonus_patitas: int
+    is_active: bool = True
 
     @property
     def total_patitas(self) -> int:
         return self.base_patitas + self.bonus_patitas
-
-
-PATITAS_PACKS = {
-    "starter": PatitasPack("starter", "Starter", 3000, 100, 0),
-    "popular": PatitasPack("popular", "Popular", 6000, 250, 25),
-    "pro": PatitasPack("pro", "Pro", 10000, 500, 100),
-}
 
 
 PATITAS_COSTS = {
@@ -42,26 +36,91 @@ PATITAS_COSTS = {
 
 
 PATITAS_DESCRIPTIONS = {
-    "lost_notification_2km": "Notificación perdidos 2km",
-    "lost_notification_5km": "Notificación perdidos 5km",
-    "adoption_feature": "Destacar adopción",
-    "adoption_feature_24h": "Destacar adopción 24hs",
-    "matching_unlimited_likes_1d": "Likes ilimitados 1 día",
-    "matching_see_likes": "Ver quién dio like",
+    "lost_notification_2km": "Notificacion perdidos 2km",
+    "lost_notification_5km": "Notificacion perdidos 5km",
+    "adoption_feature": "Destacar adopcion",
+    "adoption_feature_24h": "Destacar adopcion 24hs",
+    "matching_unlimited_likes_1d": "Likes ilimitados 1 dia",
+    "matching_see_likes": "Ver quien dio like",
     "matching_super_like": "Super Like enviado",
     "profile_boost": "Boost de perfil activado",
     "profile_strong_boost": "Boost fuerte activado",
 }
 
 
-def get_pack(pack_id: str) -> PatitasPack:
-    pack = PATITAS_PACKS.get(pack_id)
-    if not pack:
+def _row_to_pack(row: models.PatitasPackConfig) -> PatitasPack:
+    return PatitasPack(
+        id=row.id,
+        name=row.name,
+        price=row.price,
+        base_patitas=row.base_patitas,
+        bonus_patitas=row.bonus_patitas,
+        is_active=row.is_active,
+    )
+
+
+def list_packs(db: Session, *, include_inactive: bool = False) -> list[PatitasPack]:
+    query = db.query(models.PatitasPackConfig)
+    if not include_inactive:
+        query = query.filter(models.PatitasPackConfig.is_active == True)
+    rows = query.order_by(models.PatitasPackConfig.price.asc()).all()
+    return [_row_to_pack(row) for row in rows]
+
+
+def get_pack(db: Session, pack_id: str) -> PatitasPack:
+    row = (
+        db.query(models.PatitasPackConfig)
+        .filter(models.PatitasPackConfig.id == pack_id)
+        .first()
+    )
+    if not row:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Pack de Patitas inválido",
+            detail="Pack de Patitas invalido",
         )
-    return pack
+    if not row.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Este pack de Patitas no esta disponible ahora",
+        )
+    return _row_to_pack(row)
+
+
+def update_pack(
+    db: Session,
+    pack_id: str,
+    *,
+    name: Optional[str] = None,
+    price: Optional[int] = None,
+    base_patitas: Optional[int] = None,
+    bonus_patitas: Optional[int] = None,
+    is_active: Optional[bool] = None,
+) -> PatitasPack:
+    row = (
+        db.query(models.PatitasPackConfig)
+        .filter(models.PatitasPackConfig.id == pack_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Pack '{pack_id}' no encontrado",
+        )
+
+    if name is not None:
+        row.name = name
+    if price is not None:
+        row.price = price
+    if base_patitas is not None:
+        row.base_patitas = base_patitas
+    if bonus_patitas is not None:
+        row.bonus_patitas = bonus_patitas
+    if is_active is not None:
+        row.is_active = is_active
+
+    db.commit()
+    db.refresh(row)
+    return _row_to_pack(row)
 
 
 def create_pending_purchase(
@@ -114,7 +173,7 @@ def approve_purchase_once(
     if transaction is None:
         if not pack_id or not user_id:
             return None
-        pack = get_pack(pack_id)
+        pack = get_pack(db, pack_id)
         transaction = models.PatitasTransaction(
             usuario_id=user_id,
             tipo=models.PatitasTransactionType.compra,
@@ -151,7 +210,7 @@ def consumir_patitas(
     if cost is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Acción de Patitas inválida",
+            detail="Accion de Patitas invalida",
         )
 
     if (user.patitas or 0) < cost:
@@ -172,4 +231,3 @@ def consumir_patitas(
     db.commit()
     db.refresh(transaction)
     return transaction
-
