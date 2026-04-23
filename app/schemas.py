@@ -132,6 +132,15 @@ class ReceivedLikeOut(BaseModel):
     pet_id: Optional[str] = None
     pet_name: Optional[str] = None
     pet_photo: Optional[str] = None
+    pet_type: Optional[str] = None
+    breed: Optional[str] = None
+    age: Optional[str] = None
+    sex: Optional[str] = None
+    size: Optional[str] = None
+    vaccines_up_to_date: Optional[bool] = None
+    sterilized: Optional[bool] = None
+    photos: List[str] = []
+    description: Optional[str] = None
     owner_name: Optional[str] = None
     liked_my_pet_id: Optional[str] = None
     liked_my_pet_name: Optional[str] = None
