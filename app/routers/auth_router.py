@@ -85,6 +85,8 @@ def google_auth(data: schemas.GoogleAuth, db: Session = Depends(get_db)):
             detail="Faltan credenciales de Google",
         )
 
+    info = None
+
     if data.id_token:
         try:
             info = id_token.verify_oauth2_token(
@@ -93,12 +95,16 @@ def google_auth(data: schemas.GoogleAuth, db: Session = Depends(get_db)):
                 settings.GOOGLE_CLIENT_ID or None,
             )
         except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Token de Google invalido",
-            )
-    else:
+            info = None
+
+    if info is None and data.access_token:
         info = _google_userinfo_from_access_token(data.access_token)
+
+    if info is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token de Google invalido",
+        )
 
     google_id = info.get("sub")
     email = info.get("email", "")
