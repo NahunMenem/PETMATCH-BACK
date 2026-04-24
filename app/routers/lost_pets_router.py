@@ -22,6 +22,7 @@ LOST_PETS_NEARBY_RADIUS_KM = 5
 ALERT_RADIUS_ACTIONS = {
     2: "lost_notification_2km",
     5: "lost_notification_5km",
+    10: "lost_notification_10km",
 }
 
 
@@ -187,7 +188,7 @@ def create_lost_pet(
         if not pet:
             raise HTTPException(status_code=404, detail="Mascota no encontrada")
 
-    if payload.alert_radius_km not in (None, 2, 5):
+    if payload.alert_radius_km not in (None, 2, 5, 10):
         raise HTTPException(status_code=400, detail="Radio de alerta invalido")
 
     photos = payload.photos or []
@@ -264,7 +265,7 @@ def update_lost_pet(
     if payload.type not in {models.PetType.dog.value, models.PetType.cat.value}:
         raise HTTPException(status_code=400, detail="Tipo de mascota invalido")
 
-    if payload.alert_radius_km not in (None, 2, 5):
+    if payload.alert_radius_km not in (None, 2, 5, 10):
         raise HTTPException(status_code=400, detail="Radio de alerta invalido")
 
     pet = None

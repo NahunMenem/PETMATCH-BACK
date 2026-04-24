@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -25,6 +25,7 @@ from ..patitas_service import (
     list_packs as get_patitas_packs_config,
     update_pack as update_patitas_pack_config,
 )
+from ..datetime_utils import argentina_now
 
 ADMIN_EMAIL = "nahundeveloper@gmail.com"
 
@@ -55,7 +56,7 @@ class AddPatitasRequest(BaseModel):
 
 @router.get("/stats")
 def get_stats(db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
-    now = datetime.utcnow()
+    now = argentina_now()
     week_ago = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
 
@@ -175,7 +176,7 @@ def get_stats(db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
 @router.get("/stats/growth")
 def get_growth(db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
     result = []
-    now = datetime.utcnow()
+    now = argentina_now()
 
     for i in range(7, -1, -1):
         week_start = now - timedelta(weeks=i + 1)

@@ -22,8 +22,9 @@ class PatitasPack:
 
 
 PATITAS_COSTS = {
-    "lost_notification_2km": 30,
-    "lost_notification_5km": 50,
+    "lost_notification_2km": 50,
+    "lost_notification_5km": 100,
+    "lost_notification_10km": 200,
     "adoption_feature": 30,
     "adoption_feature_24h": 50,
     "matching_unlimited_likes_1d": 40,
@@ -38,6 +39,7 @@ PATITAS_COSTS = {
 PATITAS_DESCRIPTIONS = {
     "lost_notification_2km": "Notificacion perdidos 2km",
     "lost_notification_5km": "Notificacion perdidos 5km",
+    "lost_notification_10km": "Notificacion perdidos 10km",
     "adoption_feature": "Destacar adopcion",
     "adoption_feature_24h": "Destacar adopcion 24hs",
     "matching_unlimited_likes_1d": "Likes ilimitados 1 dia",

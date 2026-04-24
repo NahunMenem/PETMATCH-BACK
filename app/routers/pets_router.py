@@ -1,6 +1,6 @@
 import uuid
 import math
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from ..notification_service import (
     create_notification,
 )
 from ..patitas_service import PATITAS_DESCRIPTIONS, consumir_patitas
+from ..datetime_utils import argentina_now
 
 router = APIRouter(prefix="/pets", tags=["pets"])
 
@@ -84,7 +85,7 @@ def _distance_km(
 
 
 def _likes_unlocked(db: Session, user: models.User) -> bool:
-    since = datetime.utcnow() - timedelta(days=30)
+    since = argentina_now() - timedelta(days=30)
     descriptions = {
         PATITAS_DESCRIPTIONS[SEE_LIKES_ACTION],
         "Ver quien dio like",
@@ -106,7 +107,7 @@ def _likes_unlocked(db: Session, user: models.User) -> bool:
 
 
 def _advanced_filters_unlocked(db: Session, user: models.User) -> bool:
-    since = datetime.utcnow() - timedelta(days=30)
+    since = argentina_now() - timedelta(days=30)
     return (
         db.query(models.PatitasTransaction.id)
         .filter(

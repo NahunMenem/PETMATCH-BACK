@@ -4,6 +4,7 @@ from typing import List
 
 class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://petmatch:petmatch123@localhost:5432/petmatch_db"
+    APP_TIMEZONE: str = "America/Argentina/Buenos_Aires"
     SECRET_KEY: str = "change-this-secret-key-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60

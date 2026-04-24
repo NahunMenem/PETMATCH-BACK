@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import List
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -6,6 +5,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from .. import models, schemas
 from ..auth import get_current_user
+from ..datetime_utils import argentina_now
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
@@ -67,7 +67,7 @@ def register_device_token(
     if existing:
         existing.user_id = current_user.id
         existing.platform = payload.platform
-        existing.updated_at = datetime.utcnow()
+        existing.updated_at = argentina_now()
     else:
         db.add(
             models.DeviceToken(

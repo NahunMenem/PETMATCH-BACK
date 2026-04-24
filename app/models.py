@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime
 from sqlalchemy import (
     Column, String, Boolean, DateTime, Float, Integer,
     ForeignKey, Text, Enum, ARRAY
@@ -8,6 +7,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, ARRAY as PG_ARRAY
 import enum
 from .database import Base
+from .datetime_utils import argentina_now
 
 
 def gen_uuid():
@@ -72,8 +72,8 @@ class User(Base):
     referral_code = Column(String, unique=True, nullable=True, index=True)
     referred_by_user_id = Column(String, ForeignKey("users.id"), nullable=True)
     google_id = Column(String, unique=True, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=argentina_now)
+    updated_at = Column(DateTime, default=argentina_now, onupdate=argentina_now)
 
     pets = relationship("Pet", back_populates="owner", lazy="dynamic")
     adoptions = relationship("Adoption", back_populates="publisher", lazy="dynamic")
@@ -92,7 +92,7 @@ class PatitasTransaction(Base):
     cantidad = Column(Integer, nullable=False)
     descripcion = Column(Text, nullable=False)
     estado = Column(Enum(PatitasTransactionStatus), nullable=False)
-    fecha = Column(DateTime, default=datetime.utcnow, nullable=False)
+    fecha = Column(DateTime, default=argentina_now, nullable=False)
     mercado_pago_preference_id = Column(String, nullable=True, index=True)
     mercado_pago_payment_id = Column(String, nullable=True, unique=True, index=True)
     pack_id = Column(String, nullable=True)
@@ -109,8 +109,8 @@ class PatitasPackConfig(Base):
     base_patitas = Column(Integer, nullable=False)
     bonus_patitas = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=argentina_now, nullable=False)
+    updated_at = Column(DateTime, default=argentina_now, onupdate=argentina_now)
 
 
 class Pet(Base):
@@ -129,7 +129,7 @@ class Pet(Base):
     photos = Column(PG_ARRAY(String), default=[])
     description = Column(Text, nullable=True)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=argentina_now)
 
     owner = relationship("User", back_populates="pets")
     likes_received = relationship(
@@ -148,7 +148,7 @@ class PetLike(Base):
     liked_pet_id = Column(String, ForeignKey("pets.id"), nullable=False)
     is_dislike = Column(Boolean, default=False)
     is_super_like = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=argentina_now)
 
     liker_pet = relationship("Pet", foreign_keys=[liker_pet_id], back_populates="likes_given")
     liked_pet = relationship("Pet", foreign_keys=[liked_pet_id], back_populates="likes_received")
@@ -161,7 +161,7 @@ class Match(Base):
     pet1_id = Column(String, ForeignKey("pets.id"), nullable=False)
     pet2_id = Column(String, ForeignKey("pets.id"), nullable=False)
     conversation_id = Column(String, ForeignKey("conversations.id"), nullable=True)
-    matched_at = Column(DateTime, default=datetime.utcnow)
+    matched_at = Column(DateTime, default=argentina_now)
 
     pet1 = relationship("Pet", foreign_keys=[pet1_id])
     pet2 = relationship("Pet", foreign_keys=[pet2_id])
@@ -174,7 +174,7 @@ class Conversation(Base):
     id = Column(String, primary_key=True, default=gen_uuid)
     user1_id = Column(String, ForeignKey("users.id"), nullable=False)
     user2_id = Column(String, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=argentina_now)
 
     user1 = relationship("User", foreign_keys=[user1_id])
     user2 = relationship("User", foreign_keys=[user2_id])
@@ -190,7 +190,7 @@ class Message(Base):
     sender_id = Column(String, ForeignKey("users.id"), nullable=False)
     content = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False)
-    sent_at = Column(DateTime, default=datetime.utcnow)
+    sent_at = Column(DateTime, default=argentina_now)
 
     conversation = relationship("Conversation", back_populates="messages")
     sender = relationship("User", foreign_keys=[sender_id])
@@ -214,7 +214,7 @@ class Adoption(Base):
     longitude = Column(Float, nullable=True)
     phone = Column(String, nullable=False, default="")
     status = Column(Enum(AdoptionStatus), default=AdoptionStatus.available)
-    published_at = Column(DateTime, default=datetime.utcnow)
+    published_at = Column(DateTime, default=argentina_now)
 
     publisher = relationship("User", back_populates="adoptions")
 
@@ -236,8 +236,8 @@ class LostPet(Base):
     reward_amount = Column(Integer, nullable=True)
     alert_radius_km = Column(Integer, nullable=True)
     status = Column(Enum(LostPetStatus), default=LostPetStatus.active, nullable=False)
-    reported_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    reported_at = Column(DateTime, default=argentina_now, nullable=False)
+    updated_at = Column(DateTime, default=argentina_now, onupdate=argentina_now)
 
     reporter = relationship("User", back_populates="lost_pet_reports")
     pet = relationship("Pet")
@@ -254,7 +254,7 @@ class Notification(Base):
     image_url = Column(String, nullable=True)
     action_id = Column(String, nullable=True)
     is_read = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=argentina_now)
 
 
 class DeviceToken(Base):
@@ -264,8 +264,8 @@ class DeviceToken(Base):
     user_id = Column(String, ForeignKey("users.id"), nullable=False)
     token = Column(String, nullable=False, unique=True, index=True)
     platform = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=argentina_now, nullable=False)
+    updated_at = Column(DateTime, default=argentina_now, onupdate=argentina_now)
 
 
 class Shop(Base):
@@ -285,5 +285,5 @@ class Shop(Base):
     es_aliado = Column(Boolean, default=False)
     activo = Column(Boolean, default=True)
     foto_url = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=argentina_now)
+    updated_at = Column(DateTime, default=argentina_now, onupdate=argentina_now)

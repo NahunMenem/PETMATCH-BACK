@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from .config import settings
 from .database import get_db
 from . import models
+from .datetime_utils import utc_now
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
@@ -22,7 +23,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 def create_access_token(user_id: str) -> str:
-    expire = datetime.utcnow() + timedelta(
+    expire = utc_now() + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
     return jwt.encode(
@@ -33,7 +34,7 @@ def create_access_token(user_id: str) -> str:
 
 
 def create_refresh_token(user_id: str) -> str:
-    expire = datetime.utcnow() + timedelta(
+    expire = utc_now() + timedelta(
         days=settings.REFRESH_TOKEN_EXPIRE_DAYS
     )
     return jwt.encode(

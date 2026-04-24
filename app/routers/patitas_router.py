@@ -1,5 +1,5 @@
 import hmac
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any, Optional
 
 import requests
@@ -17,6 +17,7 @@ from ..patitas_service import (
     get_pack,
     list_packs as list_patitas_packs,
 )
+from ..datetime_utils import argentina_now
 
 router = APIRouter(tags=["patitas"])
 
@@ -25,7 +26,7 @@ ADVANCED_FILTERS_DESCRIPTION = "Filtros avanzados 30 dias"
 
 
 def _advanced_filters_expires_at(db: Session, user_id: str):
-    since = datetime.utcnow() - timedelta(days=30)
+    since = argentina_now() - timedelta(days=30)
     transaction = (
         db.query(models.PatitasTransaction)
         .filter(
@@ -168,7 +169,7 @@ def advanced_filters_status(
 ):
     expires_at = _advanced_filters_expires_at(db, current_user.id)
     return {
-        "active": expires_at is not None and expires_at > datetime.utcnow(),
+        "active": expires_at is not None and expires_at > argentina_now(),
         "expires_at": expires_at,
         "cost": 30,
     }
@@ -180,7 +181,7 @@ def activate_advanced_filters(
     db: Session = Depends(get_db),
 ):
     expires_at = _advanced_filters_expires_at(db, current_user.id)
-    if expires_at is None or expires_at <= datetime.utcnow():
+    if expires_at is None or expires_at <= argentina_now():
         consumir_patitas(
             db,
             current_user,
