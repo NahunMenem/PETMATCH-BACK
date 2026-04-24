@@ -158,3 +158,42 @@ def seed_pets(db: Session = Depends(get_db)):
 
     db.commit()
     return {"created": created, "message": f"{created} mascotas de prueba creadas"}
+
+
+_SEED_SHOPS = [
+    {"nombre": "Pet Palace", "tipo": "petshop", "descripcion": "La pet shop más completa del barrio. Alimentos premium, accesorios, juguetes y asesoramiento experto para tu mascota. Delivery disponible.", "direccion": "Av. Corrientes 1890, CABA", "lat": -34.6037, "lng": -58.3816, "telefono_whatsapp": "5491122334455", "rating": 4.8, "promo": "10% OFF en alimento esta semana", "es_destacado": True, "es_aliado": True},
+    {"nombre": "VetCare Palermo", "tipo": "veterinaria", "descripcion": "Clínica veterinaria con más de 10 años de experiencia. Urgencias 24hs, cirugía, laboratorio y radiografías.", "direccion": "Thames 1456, Palermo", "lat": -34.5891, "lng": -58.4231, "telefono_whatsapp": "5491133445566", "rating": 4.9, "promo": "1ª consulta gratis para nuevos pacientes", "es_destacado": True, "es_aliado": True},
+    {"nombre": "Mundo Mascota", "tipo": "petshop", "descripcion": "Todo lo que necesita tu mascota en un solo lugar. Más de 5000 productos disponibles.", "direccion": "Av. Santa Fe 2145, Palermo", "lat": -34.5950, "lng": -58.4000, "telefono_whatsapp": "5491144556677", "rating": 4.7, "promo": "15% OFF en bolsas de alimento", "es_destacado": False, "es_aliado": True},
+    {"nombre": "Clínica Vet San Martín", "tipo": "veterinaria", "descripcion": "Atención integral para perros y gatos. Vacunación, castración, internación y emergencias.", "direccion": "Gurruchaga 890, Villa Crespo", "lat": -34.6010, "lng": -58.4350, "telefono_whatsapp": "5491155667788", "rating": 4.9, "promo": None, "es_destacado": False, "es_aliado": False},
+    {"nombre": "Grooming Studio", "tipo": "peluqueria", "descripcion": "Baño, corte y estética canina. Usamos productos naturales hipoalergénicos. Turnos online disponibles.", "direccion": "Av. Cabildo 2300, Belgrano", "lat": -34.5650, "lng": -58.4550, "telefono_whatsapp": "5491166778899", "rating": 4.6, "promo": "Baño + corte $5000 hasta fin de mes", "es_destacado": True, "es_aliado": True},
+    {"nombre": "Paseos Caninos BA", "tipo": "paseador", "descripcion": "Paseos grupales e individuales. GPS en tiempo real, foto al finalizar cada paseo. Cobertura en Palermo, Belgrano y Recoleta.", "direccion": "Palermo, CABA", "lat": -34.5785, "lng": -58.4240, "telefono_whatsapp": "5491177889900", "rating": 4.8, "promo": "1er paseo gratis", "es_destacado": False, "es_aliado": True},
+    {"nombre": "Hotel Canino El Refugio", "tipo": "guarderia", "descripcion": "Guardería y hotel para mascotas. Amplio espacio verde, cámaras 24hs y atención personalizada.", "direccion": "Av. Libertador 5000, Núñez", "lat": -34.5520, "lng": -58.4620, "telefono_whatsapp": "5491188990011", "rating": 4.5, "promo": "10% OFF guardería semanal", "es_destacado": True, "es_aliado": True},
+    {"nombre": "Vet Express", "tipo": "veterinaria", "descripcion": "Atención rápida sin turno previo. Consultas express, vacunación y laboratorio.", "direccion": "Av. Rivadavia 3500, Flores", "lat": -34.6200, "lng": -58.4700, "telefono_whatsapp": None, "rating": 4.3, "promo": None, "es_destacado": False, "es_aliado": False},
+]
+
+
+@router.post("/seed-shops")
+def seed_shops(db: Session = Depends(get_db)):
+    created = 0
+    for data in _SEED_SHOPS:
+        existing = db.query(models.Shop).filter(models.Shop.nombre == data["nombre"]).first()
+        if not existing:
+            shop = models.Shop(
+                id=str(uuid.uuid4()),
+                nombre=data["nombre"],
+                tipo=data["tipo"],
+                descripcion=data.get("descripcion"),
+                direccion=data["direccion"],
+                lat=data["lat"],
+                lng=data["lng"],
+                telefono_whatsapp=data.get("telefono_whatsapp"),
+                rating=data.get("rating"),
+                promo=data.get("promo"),
+                es_destacado=data.get("es_destacado", False),
+                es_aliado=data.get("es_aliado", False),
+                activo=True,
+            )
+            db.add(shop)
+            created += 1
+    db.commit()
+    return {"created": created, "message": f"{created} shops creados"}
