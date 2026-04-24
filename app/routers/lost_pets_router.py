@@ -17,6 +17,8 @@ from ..patitas_service import consumir_patitas
 
 router = APIRouter(prefix="/lost-pets", tags=["lost-pets"])
 
+LOST_PETS_NEARBY_RADIUS_KM = 5
+
 ALERT_RADIUS_ACTIONS = {
     2: "lost_notification_2km",
     5: "lost_notification_5km",
@@ -120,16 +122,36 @@ def list_lost_pets(
     if status_filter in {status_item.value for status_item in models.LostPetStatus}:
         query = query.filter(models.LostPet.status == models.LostPetStatus(status_filter))
 
-    lost_pets = (
-        query.order_by(models.LostPet.reported_at.desc())
-        .offset((page - 1) * 20)
-        .limit(20)
-        .all()
-    )
-    return [
-        _lost_pet_to_out(lost_pet, current_user, latitude=lat, longitude=lng)
+    user_latitude = lat if lat is not None else current_user.latitude
+    user_longitude = lng if lng is not None else current_user.longitude
+
+    lost_pets = query.order_by(models.LostPet.reported_at.desc()).all()
+    items = [
+        _lost_pet_to_out(
+            lost_pet,
+            current_user,
+            latitude=user_latitude,
+            longitude=user_longitude,
+        )
         for lost_pet in lost_pets
     ]
+
+    if user_latitude is not None and user_longitude is not None:
+        items = [
+            item
+            for item in items
+            if item.distance_km is not None
+            and item.distance_km <= LOST_PETS_NEARBY_RADIUS_KM
+        ]
+        items.sort(
+            key=lambda item: (
+                item.distance_km or 0,
+                -item.reported_at.timestamp(),
+            )
+        )
+
+    start = (page - 1) * 20
+    return items[start : start + 20]
 
 
 @router.get("/mine", response_model=List[schemas.LostPetOut])
