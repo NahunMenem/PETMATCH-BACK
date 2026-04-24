@@ -324,7 +324,6 @@ def get_my_pets(
 def explore_pets(
     type: Optional[str] = Query(None),
     breed: Optional[str] = Query(None),
-    sex: Optional[str] = Query(None),
     vaccinated: Optional[bool] = Query(None),
     sterilized: Optional[bool] = Query(None),
     lat: Optional[float] = Query(None),
@@ -339,19 +338,24 @@ def explore_pets(
         max_distance if advanced_filters_active else min(max_distance, FREE_EXPLORE_DISTANCE_KM)
     )
 
-    # Get current user's pet IDs to exclude
+    # Exclude own pets and pets already liked. Dislikes are intentionally
+    # ignored for now so dismissed pets can appear again in Explore.
     my_pet_ids = [
-        p.id for p in db.query(models.Pet.id)
-        .filter(models.Pet.owner_id == current_user.id).all()
+        pet_id
+        for (pet_id,) in db.query(models.Pet.id)
+        .filter(models.Pet.owner_id == current_user.id)
+        .all()
     ]
-
-    # Already liked/disliked pets
-    interacted_pet_ids = [
-        l.liked_pet_id for l in db.query(models.PetLike.liked_pet_id)
-        .filter(models.PetLike.liker_pet_id.in_(my_pet_ids)).all()
+    liked_pet_ids = [
+        pet_id
+        for (pet_id,) in db.query(models.PetLike.liked_pet_id)
+        .filter(
+            models.PetLike.liker_pet_id.in_(my_pet_ids),
+            models.PetLike.is_dislike == False,
+        )
+        .all()
     ] if my_pet_ids else []
-
-    excluded = set(my_pet_ids + interacted_pet_ids)
+    excluded = set(my_pet_ids + liked_pet_ids)
 
     query = db.query(models.Pet).filter(
         models.Pet.is_active == True,
@@ -365,8 +369,6 @@ def explore_pets(
         query = query.filter(models.Pet.type == type)
     if breed:
         query = query.filter(models.Pet.breed.ilike(f"%{breed.strip()}%"))
-    if sex in ("male", "female"):
-        query = query.filter(models.Pet.sex == sex)
     if vaccinated is True:
         query = query.filter(models.Pet.vaccines_up_to_date == True)
     if sterilized is True:
@@ -379,8 +381,8 @@ def explore_pets(
     items = []
     for pet in candidates:
         distance = _distance_km(user_lat, user_lng, pet.owner.latitude, pet.owner.longitude)
-        if user_lat is not None and user_lng is not None:
-            if distance is None or distance > effective_max_distance:
+        if user_lat is not None and user_lng is not None and distance is not None:
+            if distance > effective_max_distance:
                 continue
         items.append((distance if distance is not None else 999999.0, pet, distance))
 
