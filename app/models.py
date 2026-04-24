@@ -266,3 +266,24 @@ class DeviceToken(Base):
     platform = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Shop(Base):
+    __tablename__ = "shops"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    nombre = Column(String, nullable=False)
+    tipo = Column(String, nullable=False)  # petshop, veterinaria, peluqueria, paseador, guarderia
+    descripcion = Column(String, nullable=True)
+    direccion = Column(String, nullable=False)
+    lat = Column(Float, nullable=False)
+    lng = Column(Float, nullable=False)
+    telefono_whatsapp = Column(String, nullable=True)
+    rating = Column(Float, nullable=True)
+    promo = Column(String, nullable=True)
+    es_destacado = Column(Boolean, default=False)
+    es_aliado = Column(Boolean, default=False)
+    activo = Column(Boolean, default=True)
+    foto_url = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

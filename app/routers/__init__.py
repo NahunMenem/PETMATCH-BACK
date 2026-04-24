@@ -7,5 +7,6 @@ from . import (
     notifications_router,
     patitas_router,
     pets_router,
+    shops_router,
     upload_router,
 )
