@@ -5,6 +5,7 @@ import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from .database import Base, engine
@@ -103,3 +104,10 @@ app.include_router(app_router.router)
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "PetMatch API"}
+
+
+@app.get("/health/db")
+def database_health():
+    with engine.connect() as conn:
+        conn.execute(text("SELECT 1"))
+    return {"status": "ok", "database": "connected"}
