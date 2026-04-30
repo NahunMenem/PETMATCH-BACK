@@ -1,4 +1,4 @@
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import urlparse
 
 from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
@@ -18,19 +18,13 @@ def _connect_args(url: str) -> dict:
     if not parsed.scheme.startswith("postgresql"):
         return {}
 
-    query = parse_qs(parsed.query)
-    hostname = parsed.hostname or ""
-    is_local = hostname in {"localhost", "127.0.0.1", "::1"}
-    args = {
+    return {
         "connect_timeout": 10,
         "keepalives": 1,
         "keepalives_idle": 30,
         "keepalives_interval": 10,
         "keepalives_count": 5,
     }
-    if not is_local and "sslmode" not in query:
-        args["sslmode"] = "require"
-    return args
 
 
 DATABASE_URL = _normalize_database_url(settings.DATABASE_URL)

@@ -2,8 +2,9 @@ import logging
 import threading
 import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError
 
 from .database import Base, engine
@@ -63,6 +64,17 @@ app = FastAPI(
 @app.on_event("startup")
 def startup_event():
     initialize_database_in_background()
+
+
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(_request: Request, exc: SQLAlchemyError):
+    logger.warning("Database request failed: %s", exc)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "La base de datos no esta disponible. Intenta de nuevo en unos segundos.",
+        },
+    )
 
 # CORS
 app.add_middleware(
