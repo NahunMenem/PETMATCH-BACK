@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 
 from fastapi import FastAPI
@@ -26,7 +27,7 @@ from .routers import (
 logger = logging.getLogger(__name__)
 
 
-def initialize_database(max_attempts: int = 5) -> None:
+def initialize_database(max_attempts: int = 12) -> None:
     delay_seconds = 2
     for attempt in range(1, max_attempts + 1):
         try:
@@ -34,17 +35,23 @@ def initialize_database(max_attempts: int = 5) -> None:
             run_startup_migrations()
             logger.info("Database initialized successfully")
             return
-        except SQLAlchemyError:
-            logger.exception(
-                "Database initialization failed on attempt %s/%s",
+        except SQLAlchemyError as exc:
+            logger.warning(
+                "Database initialization failed on attempt %s/%s: %s",
                 attempt,
                 max_attempts,
+                exc,
             )
             if attempt == max_attempts:
-                logger.error("Starting API without database initialization")
+                logger.exception("Database initialization failed after all attempts")
                 return
             time.sleep(delay_seconds)
             delay_seconds = min(delay_seconds * 2, 15)
+
+
+def initialize_database_in_background() -> None:
+    thread = threading.Thread(target=initialize_database, daemon=True)
+    thread.start()
 
 app = FastAPI(
     title="PetMatch API",
@@ -55,7 +62,7 @@ app = FastAPI(
 
 @app.on_event("startup")
 def startup_event():
-    initialize_database()
+    initialize_database_in_background()
 
 # CORS
 app.add_middleware(
