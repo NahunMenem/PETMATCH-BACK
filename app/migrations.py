@@ -4,19 +4,19 @@ from .database import engine
 
 
 def run_startup_migrations() -> None:
-    inspector = inspect(engine)
-    user_columns = {column["name"] for column in inspector.get_columns("users")}
-    adoption_columns = {
-        column["name"] for column in inspector.get_columns("adoptions")
-    }
-    table_names = set(inspector.get_table_names())
-    pet_like_columns = (
-        {column["name"] for column in inspector.get_columns("pet_likes")}
-        if "pet_likes" in table_names
-        else set()
-    )
-
     with engine.begin() as conn:
+        inspector = inspect(conn)
+        table_names = set(inspector.get_table_names())
+        user_columns = {column["name"] for column in inspector.get_columns("users")}
+        adoption_columns = {
+            column["name"] for column in inspector.get_columns("adoptions")
+        }
+        pet_like_columns = (
+            {column["name"] for column in inspector.get_columns("pet_likes")}
+            if "pet_likes" in table_names
+            else set()
+        )
+
         if "patitas" not in user_columns:
             conn.execute(
                 text(

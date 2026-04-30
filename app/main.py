@@ -1,5 +1,10 @@
+import logging
+import time
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import SQLAlchemyError
+
 from .database import Base, engine
 from .migrations import run_startup_migrations
 from .config import settings
@@ -18,15 +23,39 @@ from .routers import (
     app_router,
 )
 
-# Create all tables
-Base.metadata.create_all(bind=engine)
-run_startup_migrations()
+logger = logging.getLogger(__name__)
+
+
+def initialize_database(max_attempts: int = 5) -> None:
+    delay_seconds = 2
+    for attempt in range(1, max_attempts + 1):
+        try:
+            Base.metadata.create_all(bind=engine)
+            run_startup_migrations()
+            logger.info("Database initialized successfully")
+            return
+        except SQLAlchemyError:
+            logger.exception(
+                "Database initialization failed on attempt %s/%s",
+                attempt,
+                max_attempts,
+            )
+            if attempt == max_attempts:
+                logger.error("Starting API without database initialization")
+                return
+            time.sleep(delay_seconds)
+            delay_seconds = min(delay_seconds * 2, 15)
 
 app = FastAPI(
     title="PetMatch API",
     description="Backend para PetMatch - Encontrá la pareja ideal para tu mascota",
     version="1.0.0",
 )
+
+
+@app.on_event("startup")
+def startup_event():
+    initialize_database()
 
 # CORS
 app.add_middleware(
