@@ -15,6 +15,7 @@ from .routers import (
     lost_pets_router,
     admin_router,
     shops_router,
+    app_router,
 )
 
 # Create all tables
@@ -48,6 +49,7 @@ app.include_router(patitas_router.router)
 app.include_router(lost_pets_router.router)
 app.include_router(admin_router.router)
 app.include_router(shops_router.router)
+app.include_router(app_router.router)
 
 
 @app.get("/health")

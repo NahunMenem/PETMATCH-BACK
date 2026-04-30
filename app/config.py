@@ -22,6 +22,21 @@ class Settings(BaseSettings):
     MERCADO_PAGO_NOTIFICATION_URL: str = (
         "https://petmatch-back-production.up.railway.app/webhook-mercadopago"
     )
+    MIN_IOS_VERSION: str = "1.0.0"
+    MIN_ANDROID_VERSION: str = "1.0.0"
+    LATEST_IOS_VERSION: str = "1.0.0"
+    LATEST_ANDROID_VERSION: str = "1.0.0"
+    FORCE_UPDATE_IOS: bool = False
+    FORCE_UPDATE_ANDROID: bool = False
+    APP_STORE_URL: str = (
+        "https://apps.apple.com/search?term=PawMatch&entity=software"
+    )
+    PLAY_STORE_URL: str = (
+        "https://play.google.com/store/apps/details?id=com.petmatch.petmatch"
+    )
+    UPDATE_MESSAGE: str = (
+        "Hay una nueva versión de PawMatch. Actualizá la app para seguir usando todas las funciones."
+    )
 
     @property
     def cors_origins_list(self) -> List[str]:
