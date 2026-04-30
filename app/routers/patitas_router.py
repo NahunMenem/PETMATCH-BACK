@@ -120,6 +120,55 @@ def _fetch_mp_payment(payment_id: str, token: str) -> dict[str, Any]:
     return response.json()
 
 
+def _fetch_mp_merchant_order(order_id: str, token: str) -> dict[str, Any]:
+    response = requests.get(
+        f"https://api.mercadopago.com/merchant_orders/{order_id}",
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=12,
+    )
+    if response.status_code >= 400:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No se pudo validar la orden en Mercado Pago",
+        )
+    return response.json()
+
+
+def _approve_payment(
+    db: Session,
+    payment: dict[str, Any],
+    *,
+    fallback_external_reference: Optional[str] = None,
+    fallback_preference_id: Optional[str] = None,
+) -> Optional[models.PatitasTransaction]:
+    if payment.get("status") != "approved":
+        return None
+
+    metadata = payment.get("metadata") or {}
+    preference_id = payment.get("preference_id") or fallback_preference_id
+    user_id = metadata.get("user_id")
+    pack_id = metadata.get("pack_id")
+
+    external_reference = payment.get("external_reference") or fallback_external_reference
+    if external_reference and (not user_id or not pack_id):
+        parts = external_reference.split(":", 1)
+        if len(parts) == 2:
+            user_id = user_id or parts[0]
+            pack_id = pack_id or parts[1]
+
+    payment_id = payment.get("id")
+    if not payment_id:
+        return None
+
+    return approve_purchase_once(
+        db=db,
+        payment_id=str(payment_id),
+        preference_id=preference_id,
+        pack_id=pack_id,
+        user_id=user_id,
+    )
+
+
 @router.get("/patitas/packs", response_model=list[schemas.PatitasPackOut])
 def list_packs(db: Session = Depends(get_db)):
     return [_pack_out(pack) for pack in list_patitas_packs(db, include_inactive=False)]
@@ -259,41 +308,51 @@ async def webhook_mercadopago(
     x_request_id: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ):
-    payload = await request.json()
-    event_type = payload.get("type") or payload.get("topic")
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    event_type = (
+        payload.get("type")
+        or payload.get("topic")
+        or request.query_params.get("type")
+        or request.query_params.get("topic")
+    )
     data = payload.get("data") or {}
-    payment_id = data.get("id") or payload.get("id")
+    event_id = (
+        data.get("id")
+        or payload.get("id")
+        or request.query_params.get("data.id")
+        or request.query_params.get("id")
+    )
     _validate_webhook_secret(
         x_webhook_secret=x_webhook_secret,
         x_signature=x_signature,
         x_request_id=x_request_id,
-        data_id=str(payment_id) if payment_id else None,
+        data_id=str(event_id) if event_id else None,
     )
     token = _require_mp_token()
-    if event_type not in {"payment", "merchant_order"} or not payment_id:
+    if event_type not in {"payment", "merchant_order"} or not event_id:
         return {"ok": True}
 
-    payment = _fetch_mp_payment(str(payment_id), token)
-    if payment.get("status") != "approved":
-        return {"ok": True, "status": payment.get("status")}
+    if event_type == "merchant_order":
+        order = _fetch_mp_merchant_order(str(event_id), token)
+        approved_transactions = []
+        for order_payment in order.get("payments") or []:
+            payment_id = order_payment.get("id")
+            if not payment_id or order_payment.get("status") != "approved":
+                continue
+            payment = _fetch_mp_payment(str(payment_id), token)
+            transaction = _approve_payment(
+                db,
+                payment,
+                fallback_external_reference=order.get("external_reference"),
+                fallback_preference_id=order.get("preference_id"),
+            )
+            if transaction:
+                approved_transactions.append(transaction.id)
+        return {"ok": True, "transaction_ids": approved_transactions}
 
-    metadata = payment.get("metadata") or {}
-    preference_id = payment.get("preference_id")
-    user_id = metadata.get("user_id")
-    pack_id = metadata.get("pack_id")
-
-    external_reference = payment.get("external_reference")
-    if external_reference and (not user_id or not pack_id):
-        parts = external_reference.split(":", 1)
-        if len(parts) == 2:
-            user_id = user_id or parts[0]
-            pack_id = pack_id or parts[1]
-
-    transaction = approve_purchase_once(
-        db=db,
-        payment_id=str(payment_id),
-        preference_id=preference_id,
-        pack_id=pack_id,
-        user_id=user_id,
-    )
+    payment = _fetch_mp_payment(str(event_id), token)
+    transaction = _approve_payment(db, payment)
     return {"ok": True, "transaction_id": transaction.id if transaction else None}
