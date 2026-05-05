@@ -77,6 +77,7 @@ def _lost_pet_to_out(
         pet_id=lost_pet.pet_id,
         name=lost_pet.name,
         type=lost_pet.type.value,
+        sex=lost_pet.sex.value if lost_pet.sex else None,
         description=lost_pet.description,
         phone=lost_pet.phone,
         photos=lost_pet.photos or [],
@@ -178,11 +179,14 @@ def create_lost_pet(
 ):
     validate_clean_text(
         payload.name,
+        payload.sex,
         payload.description,
         payload.location,
     )
     if payload.type not in {models.PetType.dog.value, models.PetType.cat.value}:
         raise HTTPException(status_code=400, detail="Tipo de mascota invalido")
+    if payload.sex not in {models.PetSex.male.value, models.PetSex.female.value}:
+        raise HTTPException(status_code=400, detail="Sexo de mascota invalido")
 
     pet = None
     if payload.pet_id:
@@ -206,6 +210,7 @@ def create_lost_pet(
         pet_id=payload.pet_id,
         name=payload.name.strip(),
         type=models.PetType(payload.type),
+        sex=models.PetSex(payload.sex),
         description=payload.description.strip(),
         phone=payload.phone.strip(),
         photos=photos,
@@ -269,12 +274,15 @@ def update_lost_pet(
         raise HTTPException(status_code=404, detail="Alerta no encontrada")
     validate_clean_text(
         payload.name,
+        payload.sex,
         payload.description,
         payload.location,
     )
 
     if payload.type not in {models.PetType.dog.value, models.PetType.cat.value}:
         raise HTTPException(status_code=400, detail="Tipo de mascota invalido")
+    if payload.sex not in {models.PetSex.male.value, models.PetSex.female.value}:
+        raise HTTPException(status_code=400, detail="Sexo de mascota invalido")
 
     if payload.alert_radius_km not in (None, 2, 5, 10):
         raise HTTPException(status_code=400, detail="Radio de alerta invalido")
@@ -300,6 +308,7 @@ def update_lost_pet(
     lost_pet.pet_id = payload.pet_id
     lost_pet.name = payload.name.strip()
     lost_pet.type = models.PetType(payload.type)
+    lost_pet.sex = models.PetSex(payload.sex)
     lost_pet.description = payload.description.strip()
     lost_pet.phone = payload.phone.strip()
     lost_pet.photos = photos

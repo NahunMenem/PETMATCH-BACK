@@ -268,6 +268,7 @@ class LostPetCreate(BaseModel):
     pet_id: Optional[str] = None
     name: str
     type: str
+    sex: str
     description: str
     phone: str
     photos: List[str] = []
@@ -290,6 +291,7 @@ class LostPetOut(BaseModel):
     pet_id: Optional[str]
     name: str
     type: str
+    sex: Optional[str] = None
     description: str
     phone: str
     photos: List[str]

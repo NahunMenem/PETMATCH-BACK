@@ -230,6 +230,7 @@ class LostPet(Base):
     pet_id = Column(String, ForeignKey("pets.id"), nullable=True, index=True)
     name = Column(String, nullable=False)
     type = Column(Enum(PetType), nullable=False)
+    sex = Column(Enum(PetSex), nullable=True)
     description = Column(Text, nullable=False)
     phone = Column(String, nullable=False)
     photos = Column(PG_ARRAY(String), default=[])

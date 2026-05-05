@@ -11,6 +11,9 @@ def run_startup_migrations() -> None:
         adoption_columns = {
             column["name"] for column in inspector.get_columns("adoptions")
         }
+        lost_pet_columns = {
+            column["name"] for column in inspector.get_columns("lost_pets")
+        }
         pet_like_columns = (
             {column["name"] for column in inspector.get_columns("pet_likes")}
             if "pet_likes" in table_names
@@ -60,6 +63,8 @@ def run_startup_migrations() -> None:
             )
         if "sex" not in adoption_columns:
             conn.execute(text("ALTER TABLE adoptions ADD COLUMN sex VARCHAR"))
+        if "sex" not in lost_pet_columns:
+            conn.execute(text("ALTER TABLE lost_pets ADD COLUMN sex VARCHAR"))
         if "device_tokens" not in table_names:
             conn.execute(
                 text(
