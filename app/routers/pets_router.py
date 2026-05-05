@@ -123,6 +123,16 @@ def _advanced_filters_unlocked(db: Session, user: models.User) -> bool:
     )
 
 
+def _blocked_user_ids(db: Session, user_id: str) -> set[str]:
+    blocked = db.query(models.UserBlock.blocked_user_id).filter(
+        models.UserBlock.blocker_id == user_id
+    ).all()
+    blocked_by = db.query(models.UserBlock.blocker_id).filter(
+        models.UserBlock.blocked_user_id == user_id
+    ).all()
+    return {row[0] for row in blocked + blocked_by}
+
+
 def _received_likes_response(
     db: Session,
     user: models.User,
@@ -340,18 +350,10 @@ def explore_pets(
 ):
     advanced_filters_active = _advanced_filters_unlocked(db, current_user)
     effective_max_distance = (
-        max_distance if advanced_filters_active else min(max_distance, FREE_EXPLORE_DISTANCE_KM)
+        max_distance
+        if advanced_filters_active
+        else min(max_distance, FREE_EXPLORE_DISTANCE_KM)
     )
-
-
-def _blocked_user_ids(db: Session, user_id: str) -> set[str]:
-    blocked = db.query(models.UserBlock.blocked_user_id).filter(
-        models.UserBlock.blocker_id == user_id
-    ).all()
-    blocked_by = db.query(models.UserBlock.blocker_id).filter(
-        models.UserBlock.blocked_user_id == user_id
-    ).all()
-    return {row[0] for row in blocked + blocked_by}
 
     # Exclude own pets and pets already liked. Dislikes are intentionally
     # ignored for now so dismissed pets can appear again in Explore.
