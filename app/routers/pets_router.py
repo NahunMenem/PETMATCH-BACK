@@ -16,6 +16,7 @@ from ..notification_service import (
 )
 from ..patitas_service import PATITAS_DESCRIPTIONS, consumir_patitas
 from ..datetime_utils import argentina_now
+from ..moderation import validate_clean_text
 
 router = APIRouter(prefix="/pets", tags=["pets"])
 
@@ -148,10 +149,13 @@ def _received_likes_response(
         .order_by(models.PetLike.id.desc())
     )
     likes = query.all()
+    blocked_user_ids = _blocked_user_ids(db, user.id)
 
     items = []
     for like in likes:
         liker_pet = like.liker_pet
+        if liker_pet.owner_id in blocked_user_ids:
+            continue
         liked_pet = like.liked_pet
         photo = (liker_pet.photos or [None])[0]
         response_sent = (
@@ -339,6 +343,16 @@ def explore_pets(
         max_distance if advanced_filters_active else min(max_distance, FREE_EXPLORE_DISTANCE_KM)
     )
 
+
+def _blocked_user_ids(db: Session, user_id: str) -> set[str]:
+    blocked = db.query(models.UserBlock.blocked_user_id).filter(
+        models.UserBlock.blocker_id == user_id
+    ).all()
+    blocked_by = db.query(models.UserBlock.blocker_id).filter(
+        models.UserBlock.blocked_user_id == user_id
+    ).all()
+    return {row[0] for row in blocked + blocked_by}
+
     # Exclude own pets and pets already liked. Dislikes are intentionally
     # ignored for now so dismissed pets can appear again in Explore.
     my_pet_ids = [
@@ -362,6 +376,9 @@ def explore_pets(
         models.Pet.is_active == True,
         models.Pet.owner_id != current_user.id,
     )
+    blocked_user_ids = _blocked_user_ids(db, current_user.id)
+    if blocked_user_ids:
+        query = query.filter(~models.Pet.owner_id.in_(blocked_user_ids))
 
     if excluded:
         query = query.filter(~models.Pet.id.in_(excluded))
@@ -425,6 +442,7 @@ def create_pet(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    validate_clean_text(data.name, data.breed, data.age, data.description)
     has_active_pet = _has_other_active_pet(db, owner_id=current_user.id)
     pet = models.Pet(
         id=str(uuid.uuid4()),
@@ -460,6 +478,7 @@ def update_pet(
     ).first()
     if not pet:
         raise HTTPException(status_code=404, detail="Mascota no encontrada")
+    validate_clean_text(data.name, data.breed, data.age, data.description)
 
     was_active = pet.is_active
     activating_this_pet = data.is_active is True
@@ -534,6 +553,65 @@ def delete_pet(
         ).delete(synchronize_session=False)
 
     db.delete(pet)
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/report")
+def report_pet(
+    data: schemas.PetModerationAction,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    pet = db.query(models.Pet).filter(models.Pet.id == data.pet_id).first()
+    if not pet or pet.owner_id == current_user.id:
+        raise HTTPException(status_code=404, detail="Mascota no encontrada")
+    db.add(
+        models.ContentReport(
+            id=str(uuid.uuid4()),
+            reporter_id=current_user.id,
+            reported_user_id=pet.owner_id,
+            content_type="pet",
+            content_id=pet.id,
+            reason=data.reason or "Contenido inapropiado",
+        )
+    )
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/block-owner")
+def block_pet_owner(
+    data: schemas.PetModerationAction,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    pet = db.query(models.Pet).filter(models.Pet.id == data.pet_id).first()
+    if not pet or pet.owner_id == current_user.id:
+        raise HTTPException(status_code=404, detail="Mascota no encontrada")
+    existing = db.query(models.UserBlock).filter(
+        models.UserBlock.blocker_id == current_user.id,
+        models.UserBlock.blocked_user_id == pet.owner_id,
+    ).first()
+    if not existing:
+        db.add(
+            models.UserBlock(
+                id=str(uuid.uuid4()),
+                blocker_id=current_user.id,
+                blocked_user_id=pet.owner_id,
+                reason=data.reason,
+            )
+        )
+    db.add(
+        models.ContentReport(
+            id=str(uuid.uuid4()),
+            reporter_id=current_user.id,
+            reported_user_id=pet.owner_id,
+            content_type="user",
+            content_id=pet.owner_id,
+            reason=data.reason or "Usuario bloqueado por conducta abusiva",
+        )
+    )
     db.commit()
     return {"ok": True}
 

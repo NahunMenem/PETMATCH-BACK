@@ -8,6 +8,7 @@ from ..database import get_db
 from .. import models, schemas
 from ..auth import get_current_user
 from ..notification_service import TYPE_ADOPTION_INTEREST, create_notification
+from ..moderation import validate_clean_text
 
 router = APIRouter(prefix="/adoptions", tags=["adoptions"])
 
@@ -117,6 +118,14 @@ def create_adoption(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    validate_clean_text(
+        data.name,
+        data.age,
+        data.breed,
+        data.health_status,
+        data.description,
+        data.location,
+    )
     if data.type not in ("dog", "cat"):
         raise HTTPException(status_code=400, detail="Tipo de mascota inválido")
     if data.size not in ("small", "medium", "large"):

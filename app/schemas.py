@@ -10,6 +10,7 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     referral_code: Optional[str] = None
+    terms_accepted: bool = False
 
 
 class UserLogin(BaseModel):
@@ -21,6 +22,16 @@ class GoogleAuth(BaseModel):
     id_token: Optional[str] = None
     access_token: Optional[str] = None
     referral_code: Optional[str] = None
+    terms_accepted: bool = False
+
+
+class AppleAuth(BaseModel):
+    identity_token: str
+    authorization_code: Optional[str] = None
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+    referral_code: Optional[str] = None
+    terms_accepted: bool = False
 
 
 class TokenRefresh(BaseModel):
@@ -123,6 +134,11 @@ class SwipeAction(BaseModel):
     pet_id: str  # the pet being liked/disliked
 
 
+class PetModerationAction(BaseModel):
+    pet_id: str
+    reason: Optional[str] = "Contenido inapropiado"
+
+
 # ── Match ─────────────────────────────────────────────────────────────────────
 
 class MatchOut(BaseModel):
@@ -179,6 +195,11 @@ class ConversationOut(BaseModel):
 class MessageCreate(BaseModel):
     conversation_id: str
     content: str
+
+
+class ConversationModerationAction(BaseModel):
+    conversation_id: str
+    reason: Optional[str] = "Contenido inapropiado"
 
 
 class MessageOut(BaseModel):

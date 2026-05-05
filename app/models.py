@@ -72,6 +72,8 @@ class User(Base):
     referral_code = Column(String, unique=True, nullable=True, index=True)
     referred_by_user_id = Column(String, ForeignKey("users.id"), nullable=True)
     google_id = Column(String, unique=True, nullable=True)
+    apple_id = Column(String, unique=True, nullable=True)
+    terms_accepted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=argentina_now)
     updated_at = Column(DateTime, default=argentina_now, onupdate=argentina_now)
 
@@ -266,6 +268,29 @@ class DeviceToken(Base):
     platform = Column(String, nullable=True)
     created_at = Column(DateTime, default=argentina_now, nullable=False)
     updated_at = Column(DateTime, default=argentina_now, onupdate=argentina_now)
+
+
+class ContentReport(Base):
+    __tablename__ = "content_reports"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    reporter_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    reported_user_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    content_type = Column(String, nullable=False)
+    content_id = Column(String, nullable=False, index=True)
+    reason = Column(Text, nullable=False)
+    status = Column(String, nullable=False, default="pending")
+    created_at = Column(DateTime, default=argentina_now, nullable=False)
+
+
+class UserBlock(Base):
+    __tablename__ = "user_blocks"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    blocker_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    blocked_user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    reason = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=argentina_now, nullable=False)
 
 
 class Shop(Base):

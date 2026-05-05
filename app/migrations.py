@@ -44,6 +44,13 @@ def run_startup_migrations() -> None:
                     "ADD COLUMN referred_by_user_id VARCHAR REFERENCES users(id)"
                 )
             )
+        if "apple_id" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN apple_id VARCHAR"))
+            conn.execute(
+                text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_apple_id ON users (apple_id)")
+            )
+        if "terms_accepted_at" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN terms_accepted_at TIMESTAMP"))
         if "phone" not in adoption_columns:
             conn.execute(
                 text(
@@ -95,6 +102,38 @@ def run_startup_migrations() -> None:
                     "ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP"
                 )
             )
+        if "content_reports" not in table_names:
+            conn.execute(
+                text(
+                    "CREATE TABLE content_reports ("
+                    "id VARCHAR PRIMARY KEY, "
+                    "reporter_id VARCHAR NOT NULL REFERENCES users(id), "
+                    "reported_user_id VARCHAR REFERENCES users(id), "
+                    "content_type VARCHAR NOT NULL, "
+                    "content_id VARCHAR NOT NULL, "
+                    "reason TEXT NOT NULL, "
+                    "status VARCHAR NOT NULL DEFAULT 'pending', "
+                    "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
+                    ")"
+                )
+            )
+            conn.execute(text("CREATE INDEX ix_content_reports_reporter_id ON content_reports (reporter_id)"))
+            conn.execute(text("CREATE INDEX ix_content_reports_reported_user_id ON content_reports (reported_user_id)"))
+            conn.execute(text("CREATE INDEX ix_content_reports_content_id ON content_reports (content_id)"))
+        if "user_blocks" not in table_names:
+            conn.execute(
+                text(
+                    "CREATE TABLE user_blocks ("
+                    "id VARCHAR PRIMARY KEY, "
+                    "blocker_id VARCHAR NOT NULL REFERENCES users(id), "
+                    "blocked_user_id VARCHAR NOT NULL REFERENCES users(id), "
+                    "reason TEXT, "
+                    "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
+                    ")"
+                )
+            )
+            conn.execute(text("CREATE INDEX ix_user_blocks_blocker_id ON user_blocks (blocker_id)"))
+            conn.execute(text("CREATE INDEX ix_user_blocks_blocked_user_id ON user_blocks (blocked_user_id)"))
         conn.execute(
             text(
                 "UPDATE patitas_packs "

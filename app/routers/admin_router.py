@@ -11,6 +11,7 @@ from ..database import get_db
 from ..models import (
     Adoption,
     Conversation,
+    ContentReport,
     DeviceToken,
     LostPet,
     Match,
@@ -52,6 +53,10 @@ class PackUpdate(BaseModel):
 class AddPatitasRequest(BaseModel):
     amount: int
     reason: str = "Asignacion manual admin"
+
+
+class ReportStatusUpdate(BaseModel):
+    status: str
 
 
 @router.get("/stats")
@@ -171,6 +176,48 @@ def get_stats(db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
             "revenue_this_month": int(revenue_month),
         },
     }
+
+
+@router.get("/reports")
+def list_reports(
+    status_filter: Optional[str] = Query("pending", alias="status"),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    query = db.query(ContentReport)
+    if status_filter:
+        query = query.filter(ContentReport.status == status_filter)
+    reports = query.order_by(ContentReport.created_at.desc()).limit(100).all()
+    return [
+        {
+            "id": report.id,
+            "reporter_id": report.reporter_id,
+            "reported_user_id": report.reported_user_id,
+            "content_type": report.content_type,
+            "content_id": report.content_id,
+            "reason": report.reason,
+            "status": report.status,
+            "created_at": report.created_at,
+        }
+        for report in reports
+    ]
+
+
+@router.patch("/reports/{report_id}")
+def update_report_status(
+    report_id: str,
+    payload: ReportStatusUpdate,
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    if payload.status not in {"pending", "reviewing", "resolved", "dismissed"}:
+        raise HTTPException(status_code=400, detail="Estado invalido")
+    report = db.query(ContentReport).filter(ContentReport.id == report_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="Reporte no encontrado")
+    report.status = payload.status
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/stats/growth")

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from .. import models, schemas
 from ..auth import get_current_user
+from ..moderation import validate_clean_text
 from ..database import get_db
 from ..notification_service import (
     TYPE_LOST_ALERT_REACH,
@@ -175,6 +176,11 @@ def create_lost_pet(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user),
 ):
+    validate_clean_text(
+        payload.name,
+        payload.description,
+        payload.location,
+    )
     if payload.type not in {models.PetType.dog.value, models.PetType.cat.value}:
         raise HTTPException(status_code=400, detail="Tipo de mascota invalido")
 
@@ -261,6 +267,11 @@ def update_lost_pet(
     )
     if not lost_pet:
         raise HTTPException(status_code=404, detail="Alerta no encontrada")
+    validate_clean_text(
+        payload.name,
+        payload.description,
+        payload.location,
+    )
 
     if payload.type not in {models.PetType.dog.value, models.PetType.cat.value}:
         raise HTTPException(status_code=400, detail="Tipo de mascota invalido")
