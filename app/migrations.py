@@ -58,6 +58,8 @@ def run_startup_migrations() -> None:
                     "ADD COLUMN phone VARCHAR NOT NULL DEFAULT ''"
                 )
             )
+        if "sex" not in adoption_columns:
+            conn.execute(text("ALTER TABLE adoptions ADD COLUMN sex VARCHAR"))
         if "device_tokens" not in table_names:
             conn.execute(
                 text(

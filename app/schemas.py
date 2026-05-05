@@ -221,6 +221,7 @@ class AdoptionCreate(BaseModel):
     type: str
     age: str
     breed: Optional[str] = None
+    sex: str
     size: str
     health_status: str
     description: str
@@ -244,6 +245,7 @@ class AdoptionOut(BaseModel):
     type: str
     age: str
     breed: Optional[str]
+    sex: Optional[str] = None
     size: str
     health_status: str
     description: str

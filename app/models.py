@@ -207,6 +207,7 @@ class Adoption(Base):
     type = Column(Enum(PetType), nullable=False)
     age = Column(String, nullable=False)
     breed = Column(String, nullable=True)
+    sex = Column(Enum(PetSex), nullable=True)
     size = Column(Enum(PetSize), nullable=False)
     health_status = Column(String, nullable=False)
     description = Column(Text, nullable=False)

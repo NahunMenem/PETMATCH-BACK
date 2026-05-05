@@ -49,6 +49,7 @@ def _adoption_to_out(
         type=adoption.type.value,
         age=adoption.age,
         breed=adoption.breed,
+        sex=adoption.sex.value if adoption.sex else None,
         size=adoption.size.value,
         health_status=adoption.health_status,
         description=adoption.description,
@@ -70,6 +71,7 @@ def get_adoptions(
     lat: Optional[float] = Query(None),
     lng: Optional[float] = Query(None),
     age: Optional[str] = Query(None),
+    sex: Optional[str] = Query(None),
     size: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
     current_user: models.User = Depends(get_current_user),
@@ -81,6 +83,8 @@ def get_adoptions(
 
     if type in ("dog", "cat"):
         query = query.filter(models.Adoption.type == type)
+    if sex in ("male", "female"):
+        query = query.filter(models.Adoption.sex == sex)
     if size:
         query = query.filter(models.Adoption.size == size)
 
@@ -122,12 +126,15 @@ def create_adoption(
         data.name,
         data.age,
         data.breed,
+        data.sex,
         data.health_status,
         data.description,
         data.location,
     )
     if data.type not in ("dog", "cat"):
         raise HTTPException(status_code=400, detail="Tipo de mascota inválido")
+    if data.sex not in ("male", "female"):
+        raise HTTPException(status_code=400, detail="Sexo invalido")
     if data.size not in ("small", "medium", "large"):
         raise HTTPException(status_code=400, detail="Tamaño inválido")
 
@@ -141,6 +148,7 @@ def create_adoption(
         type=data.type,
         age=data.age,
         breed=data.breed,
+        sex=data.sex,
         size=data.size,
         health_status=data.health_status,
         description=data.description,
