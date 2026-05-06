@@ -371,6 +371,13 @@ def update_lost_pet(
                         f"Podras volver a notificar a las {next_at.strftime('%H:%M')} hs."
                     ),
                 )
+        consumir_patitas(
+            db,
+            current_user,
+            ALERT_RADIUS_ACTIONS[payload.alert_radius_km],
+            descripcion=f"Re-notificacion de mascota perdida a {payload.alert_radius_km} km",
+        )
+        db.flush()
         notified = notify_users_near_lost_pet(
             db,
             lost_pet=lost_pet,
