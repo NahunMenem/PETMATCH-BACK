@@ -65,6 +65,56 @@ def run_startup_migrations() -> None:
             conn.execute(text("ALTER TABLE adoptions ADD COLUMN sex VARCHAR"))
         if "sex" not in lost_pet_columns:
             conn.execute(text("ALTER TABLE lost_pets ADD COLUMN sex VARCHAR"))
+        if "phone" not in lost_pet_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE lost_pets "
+                    "ADD COLUMN phone VARCHAR NOT NULL DEFAULT ''"
+                )
+            )
+        if "photos" not in lost_pet_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE lost_pets "
+                    "ADD COLUMN photos VARCHAR[] DEFAULT ARRAY[]::VARCHAR[]"
+                )
+            )
+        if "location" not in lost_pet_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE lost_pets "
+                    "ADD COLUMN location VARCHAR NOT NULL DEFAULT ''"
+                )
+            )
+        if "latitude" not in lost_pet_columns:
+            conn.execute(text("ALTER TABLE lost_pets ADD COLUMN latitude FLOAT"))
+        if "longitude" not in lost_pet_columns:
+            conn.execute(text("ALTER TABLE lost_pets ADD COLUMN longitude FLOAT"))
+        if "reward_amount" not in lost_pet_columns:
+            conn.execute(text("ALTER TABLE lost_pets ADD COLUMN reward_amount INTEGER"))
+        if "alert_radius_km" not in lost_pet_columns:
+            conn.execute(text("ALTER TABLE lost_pets ADD COLUMN alert_radius_km INTEGER"))
+        if "status" not in lost_pet_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE lost_pets "
+                    "ADD COLUMN status VARCHAR NOT NULL DEFAULT 'active'"
+                )
+            )
+        if "reported_at" not in lost_pet_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE lost_pets "
+                    "ADD COLUMN reported_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
+                )
+            )
+        if "updated_at" not in lost_pet_columns:
+            conn.execute(
+                text(
+                    "ALTER TABLE lost_pets "
+                    "ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+                )
+            )
         if "device_tokens" not in table_names:
             conn.execute(
                 text(
