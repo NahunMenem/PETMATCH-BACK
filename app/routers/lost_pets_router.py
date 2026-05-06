@@ -301,6 +301,7 @@ def update_lost_pet(
             raise HTTPException(status_code=404, detail="Mascota no encontrada")
 
     previous_pet_id = lost_pet.pet_id
+    previous_alert_radius_km = lost_pet.alert_radius_km
     photos = payload.photos or []
     if not photos and pet:
         photos = pet.photos or []
@@ -322,6 +323,32 @@ def update_lost_pet(
     _sync_pet_active_state(db, previous_pet_id)
     if payload.pet_id != previous_pet_id:
         _sync_pet_active_state(db, payload.pet_id)
+
+    if payload.alert_radius_km and previous_alert_radius_km is None:
+        consumir_patitas(
+            db,
+            current_user,
+            ALERT_RADIUS_ACTIONS[payload.alert_radius_km],
+            descripcion=f"Alerta de mascota perdida a {payload.alert_radius_km} km",
+        )
+        db.flush()
+        notified = notify_users_near_lost_pet(
+            db,
+            lost_pet=lost_pet,
+            radius_km=payload.alert_radius_km,
+        )
+        create_notification(
+            db,
+            user_id=current_user.id,
+            type=TYPE_LOST_ALERT_REACH,
+            title=f"Tu alerta llego a {notified} personas",
+            body=(
+                f"La alerta de {lost_pet.name} fue enviada en un radio "
+                f"de {payload.alert_radius_km} km."
+            ),
+            image_url=(photos or [None])[0],
+            action_id=lost_pet.id,
+        )
 
     db.commit()
     db.refresh(lost_pet)
