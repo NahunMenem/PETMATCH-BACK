@@ -239,6 +239,7 @@ class LostPet(Base):
     longitude = Column(Float, nullable=True)
     reward_amount = Column(Integer, nullable=True)
     alert_radius_km = Column(Integer, nullable=True)
+    last_notified_at = Column(DateTime, nullable=True)
     status = Column(Enum(LostPetStatus), default=LostPetStatus.active, nullable=False)
     reported_at = Column(DateTime, default=argentina_now, nullable=False)
     updated_at = Column(DateTime, default=argentina_now, onupdate=argentina_now)

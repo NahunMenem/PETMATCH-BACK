@@ -1,4 +1,5 @@
 import math
+from datetime import timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -8,6 +9,7 @@ from .. import models, schemas
 from ..auth import get_current_user
 from ..moderation import validate_clean_text
 from ..database import get_db
+from ..datetime_utils import argentina_now
 from ..notification_service import (
     TYPE_LOST_ALERT_REACH,
     create_notification,
@@ -69,6 +71,11 @@ def _lost_pet_to_out(
             lost_pet.longitude,
         )
 
+    next_notification_at = (
+        lost_pet.last_notified_at + timedelta(hours=24)
+        if lost_pet.last_notified_at
+        else None
+    )
     return schemas.LostPetOut(
         id=lost_pet.id,
         reporter_id=lost_pet.reporter_id,
@@ -86,6 +93,8 @@ def _lost_pet_to_out(
         longitude=lost_pet.longitude,
         reward_amount=lost_pet.reward_amount,
         alert_radius_km=lost_pet.alert_radius_km,
+        last_notified_at=lost_pet.last_notified_at,
+        next_notification_at=next_notification_at,
         status=lost_pet.status.value,
         reported_at=lost_pet.reported_at,
         distance_km=distance,
@@ -236,6 +245,7 @@ def create_lost_pet(
             lost_pet=lost_pet,
             radius_km=payload.alert_radius_km,
         )
+        lost_pet.last_notified_at = argentina_now()
         create_notification(
             db,
             user_id=current_user.id,
@@ -337,6 +347,7 @@ def update_lost_pet(
             lost_pet=lost_pet,
             radius_km=payload.alert_radius_km,
         )
+        lost_pet.last_notified_at = argentina_now()
         create_notification(
             db,
             user_id=current_user.id,
@@ -344,6 +355,35 @@ def update_lost_pet(
             title=f"Tu alerta llego a {notified} personas",
             body=(
                 f"La alerta de {lost_pet.name} fue enviada en un radio "
+                f"de {payload.alert_radius_km} km."
+            ),
+            image_url=(photos or [None])[0],
+            action_id=lost_pet.id,
+        )
+    elif payload.alert_radius_km and payload.renotify:
+        if lost_pet.last_notified_at:
+            next_at = lost_pet.last_notified_at + timedelta(hours=24)
+            if argentina_now() < next_at:
+                raise HTTPException(
+                    status_code=429,
+                    detail=(
+                        f"Ya enviaste una notificacion hoy. "
+                        f"Podras volver a notificar a las {next_at.strftime('%H:%M')} hs."
+                    ),
+                )
+        notified = notify_users_near_lost_pet(
+            db,
+            lost_pet=lost_pet,
+            radius_km=payload.alert_radius_km,
+        )
+        lost_pet.last_notified_at = argentina_now()
+        create_notification(
+            db,
+            user_id=current_user.id,
+            type=TYPE_LOST_ALERT_REACH,
+            title=f"Tu alerta llego a {notified} personas",
+            body=(
+                f"La alerta de {lost_pet.name} fue enviada de nuevo en un radio "
                 f"de {payload.alert_radius_km} km."
             ),
             image_url=(photos or [None])[0],

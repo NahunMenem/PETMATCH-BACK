@@ -277,6 +277,7 @@ class LostPetCreate(BaseModel):
     longitude: Optional[float] = None
     reward_amount: Optional[int] = None
     alert_radius_km: Optional[int] = None
+    renotify: bool = False
 
 
 class LostPetStatusUpdate(BaseModel):
@@ -300,6 +301,8 @@ class LostPetOut(BaseModel):
     longitude: Optional[float]
     reward_amount: Optional[int]
     alert_radius_km: Optional[int]
+    last_notified_at: Optional[datetime] = None
+    next_notification_at: Optional[datetime] = None
     status: str
     reported_at: datetime
     distance_km: Optional[float] = None
