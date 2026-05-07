@@ -94,6 +94,8 @@ def run_startup_migrations() -> None:
             conn.execute(text("ALTER TABLE lost_pets ADD COLUMN reward_amount INTEGER"))
         if "alert_radius_km" not in lost_pet_columns:
             conn.execute(text("ALTER TABLE lost_pets ADD COLUMN alert_radius_km INTEGER"))
+        if "last_notified_at" not in lost_pet_columns:
+            conn.execute(text("ALTER TABLE lost_pets ADD COLUMN last_notified_at TIMESTAMP"))
         if "status" not in lost_pet_columns:
             conn.execute(
                 text(
