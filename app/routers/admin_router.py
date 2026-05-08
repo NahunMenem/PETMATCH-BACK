@@ -428,6 +428,152 @@ def list_packs(
     ]
 
 
+@router.get("/pets")
+def get_admin_pets(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, le=100),
+    search: Optional[str] = Query(default=None),
+    pet_type: Optional[str] = Query(default=None, alias="type"),
+    sex: Optional[str] = Query(default=None),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    q = db.query(Pet).join(User, Pet.owner_id == User.id)
+    if search:
+        q = q.filter(
+            or_(
+                Pet.name.ilike(f"%{search}%"),
+                User.name.ilike(f"%{search}%"),
+                User.email.ilike(f"%{search}%"),
+            )
+        )
+    if pet_type:
+        q = q.filter(Pet.type == pet_type)
+    if sex:
+        q = q.filter(Pet.sex == sex)
+    total = q.count()
+    pets = q.order_by(Pet.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    return {
+        "total": total,
+        "page": page,
+        "pets": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "type": p.type,
+                "breed": p.breed,
+                "sex": p.sex,
+                "size": p.size,
+                "vaccines_up_to_date": p.vaccines_up_to_date,
+                "sterilized": p.sterilized,
+                "is_active": p.is_active,
+                "photos": p.photos or [],
+                "created_at": p.created_at.isoformat() if p.created_at else None,
+                "owner_id": p.owner_id,
+                "owner_name": p.owner.name if p.owner else "",
+                "owner_email": p.owner.email if p.owner else "",
+            }
+            for p in pets
+        ],
+    }
+
+
+@router.get("/adoptions")
+def get_admin_adoptions(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, le=100),
+    search: Optional[str] = Query(default=None),
+    adoption_status: Optional[str] = Query(default=None, alias="status"),
+    pet_type: Optional[str] = Query(default=None, alias="type"),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    q = db.query(Adoption).join(User, Adoption.publisher_id == User.id)
+    if search:
+        q = q.filter(
+            or_(
+                Adoption.name.ilike(f"%{search}%"),
+                User.name.ilike(f"%{search}%"),
+                User.email.ilike(f"%{search}%"),
+            )
+        )
+    if adoption_status:
+        q = q.filter(Adoption.status == adoption_status)
+    if pet_type:
+        q = q.filter(Adoption.type == pet_type)
+    total = q.count()
+    adoptions = q.order_by(Adoption.published_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    return {
+        "total": total,
+        "page": page,
+        "adoptions": [
+            {
+                "id": a.id,
+                "name": a.name,
+                "type": a.type,
+                "sex": a.sex,
+                "size": a.size,
+                "age": a.age,
+                "breed": a.breed,
+                "health_status": a.health_status,
+                "location": a.location,
+                "status": a.status,
+                "photos": a.photos or [],
+                "published_at": a.published_at.isoformat() if a.published_at else None,
+                "publisher_id": a.publisher_id,
+                "publisher_name": a.publisher.name if a.publisher else "",
+                "publisher_email": a.publisher.email if a.publisher else "",
+            }
+            for a in adoptions
+        ],
+    }
+
+
+@router.get("/lost-pets")
+def get_admin_lost_pets(
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=20, le=100),
+    search: Optional[str] = Query(default=None),
+    lost_status: Optional[str] = Query(default=None, alias="status"),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    q = db.query(LostPet).join(User, LostPet.reporter_id == User.id)
+    if search:
+        q = q.filter(
+            or_(
+                LostPet.name.ilike(f"%{search}%"),
+                User.name.ilike(f"%{search}%"),
+                User.email.ilike(f"%{search}%"),
+            )
+        )
+    if lost_status:
+        q = q.filter(LostPet.status == lost_status)
+    total = q.count()
+    lost = q.order_by(LostPet.reported_at.desc()).offset((page - 1) * limit).limit(limit).all()
+    return {
+        "total": total,
+        "page": page,
+        "lost_pets": [
+            {
+                "id": lp.id,
+                "name": lp.name,
+                "type": lp.type,
+                "sex": lp.sex,
+                "location": lp.location,
+                "reward_amount": lp.reward_amount,
+                "status": lp.status,
+                "photos": lp.photos or [],
+                "reported_at": lp.reported_at.isoformat() if lp.reported_at else None,
+                "reporter_id": lp.reporter_id,
+                "reporter_name": lp.reporter.name if lp.reporter else "",
+                "reporter_email": lp.reporter.email if lp.reporter else "",
+            }
+            for lp in lost
+        ],
+    }
+
+
 @router.put("/patitas/packs/{pack_id}")
 def update_pack(
     pack_id: str,
