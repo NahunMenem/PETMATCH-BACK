@@ -73,6 +73,7 @@ class User(Base):
     referred_by_user_id = Column(String, ForeignKey("users.id"), nullable=True)
     google_id = Column(String, unique=True, nullable=True)
     apple_id = Column(String, unique=True, nullable=True)
+    email_verification_token = Column(String, nullable=True, index=True)
     terms_accepted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=argentina_now)
     updated_at = Column(DateTime, default=argentina_now, onupdate=argentina_now)

@@ -18,6 +18,7 @@ from ..auth import (
 )
 from ..config import settings
 from ..datetime_utils import argentina_now
+from ..email_service import send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 REFERRAL_BONUS_PATITAS = 10
@@ -153,11 +154,14 @@ def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
         )
     referrer = _resolve_referrer(db, data.referral_code)
 
+    verification_token = uuid.uuid4().hex
     user = models.User(
         id=str(uuid.uuid4()),
         email=data.email,
         hashed_password=hash_password(data.password),
         name=data.name,
+        is_verified=False,
+        email_verification_token=verification_token,
         referred_by_user_id=referrer.id if referrer else None,
         terms_accepted_at=argentina_now(),
     )
@@ -168,7 +172,28 @@ def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
         _grant_referral_bonus(db, referrer=referrer, referred_user=user)
     db.commit()
     db.refresh(user)
+
+    send_verification_email(user.email, user.name, verification_token)
+
     return _build_auth_response(user)
+
+
+@router.get("/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    user = (
+        db.query(models.User)
+        .filter(models.User.email_verification_token == token)
+        .first()
+    )
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Token inválido o ya utilizado",
+        )
+    user.is_verified = True
+    user.email_verification_token = None
+    db.commit()
+    return {"message": "Cuenta verificada correctamente"}
 
 
 @router.post("/apple", response_model=schemas.AuthResponse)

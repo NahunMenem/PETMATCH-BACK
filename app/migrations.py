@@ -54,6 +54,14 @@ def run_startup_migrations() -> None:
             )
         if "terms_accepted_at" not in user_columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN terms_accepted_at TIMESTAMP"))
+        if "email_verification_token" not in user_columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN email_verification_token VARCHAR"))
+            conn.execute(
+                text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ix_users_email_verification_token "
+                    "ON users (email_verification_token) WHERE email_verification_token IS NOT NULL"
+                )
+            )
         if "phone" not in adoption_columns:
             conn.execute(
                 text(
