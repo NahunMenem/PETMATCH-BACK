@@ -63,6 +63,11 @@ class AuthResponse(BaseModel):
     user: UserOut
 
 
+class RegisterResponse(BaseModel):
+    message: str
+    email: str
+
+
 class UserLocationUpdate(BaseModel):
     latitude: float
     longitude: float

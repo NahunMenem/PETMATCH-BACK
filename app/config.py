@@ -41,6 +41,14 @@ class Settings(BaseSettings):
         "Hay una nueva versión de PawMatch. Actualizá la app para seguir usando todas las funciones."
     )
 
+    PUBLIC_WEB_URL: str = "https://pawmatch.com.ar"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = "PawMatch"
+
     @property
     def cors_origins_list(self) -> List[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",")]

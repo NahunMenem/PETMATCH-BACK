@@ -62,6 +62,10 @@ def run_startup_migrations() -> None:
                     "ON users (email_verification_token) WHERE email_verification_token IS NOT NULL"
                 )
             )
+        if "email_verification_expires_at" not in user_columns:
+            conn.execute(
+                text("ALTER TABLE users ADD COLUMN email_verification_expires_at TIMESTAMP")
+            )
         if "phone" not in adoption_columns:
             conn.execute(
                 text(

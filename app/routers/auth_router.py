@@ -1,4 +1,7 @@
+import logging
+import secrets
 import uuid
+from datetime import timedelta
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status
 from jose import jwt
@@ -22,6 +25,8 @@ from ..email_service import send_verification_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 REFERRAL_BONUS_PATITAS = 10
+logger = logging.getLogger(__name__)
+EMAIL_VERIFICATION_TOKEN_HOURS = 24
 
 
 def _generate_referral_code() -> str:
@@ -91,6 +96,17 @@ def _build_auth_response(user: models.User) -> schemas.AuthResponse:
     )
 
 
+def _generate_email_verification_token(db: Session) -> str:
+    token = secrets.token_urlsafe(32)
+    while (
+        db.query(models.User.id)
+        .filter(models.User.email_verification_token == token)
+        .first()
+    ):
+        token = secrets.token_urlsafe(32)
+    return token
+
+
 def _require_terms_for_new_account(accepted: bool) -> None:
     if not accepted:
         raise HTTPException(
@@ -144,38 +160,63 @@ def _verify_apple_identity_token(identity_token: str) -> dict:
         )
 
 
-@router.post("/register", response_model=schemas.AuthResponse)
+@router.post("/register", response_model=schemas.RegisterResponse)
 def register(data: schemas.UserRegister, db: Session = Depends(get_db)):
+    if not data.terms_accepted:
+        logger.info("Register rejected for %s: terms not accepted", data.email)
     _require_terms_for_new_account(data.terms_accepted)
     if db.query(models.User).filter(models.User.email == data.email).first():
+        logger.info("Register rejected for %s: email already exists", data.email)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Ya existe una cuenta con ese email",
         )
-    referrer = _resolve_referrer(db, data.referral_code)
+    try:
+        referrer = _resolve_referrer(db, data.referral_code)
+    except HTTPException:
+        logger.info(
+            "Register rejected for %s: invalid referral code %s",
+            data.email,
+            data.referral_code,
+        )
+        raise
 
-    verification_token = uuid.uuid4().hex
     user = models.User(
         id=str(uuid.uuid4()),
         email=data.email,
         hashed_password=hash_password(data.password),
         name=data.name,
         is_verified=False,
-        email_verification_token=verification_token,
         referred_by_user_id=referrer.id if referrer else None,
         terms_accepted_at=argentina_now(),
+        email_verification_token=_generate_email_verification_token(db),
+        email_verification_expires_at=argentina_now()
+        + timedelta(hours=EMAIL_VERIFICATION_TOKEN_HOURS),
     )
     _ensure_referral_code(db, user)
     db.add(user)
     db.flush()
     if referrer:
         _grant_referral_bonus(db, referrer=referrer, referred_user=user)
+    try:
+        send_verification_email(
+            to_email=user.email,
+            name=user.name,
+            token=user.email_verification_token,
+        )
+    except Exception:
+        db.rollback()
+        logger.exception("Could not send verification email to %s", user.email)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No se pudo enviar el correo de verificacion. Intenta de nuevo mas tarde.",
+        )
     db.commit()
     db.refresh(user)
-
-    send_verification_email(user.email, user.name, verification_token)
-
-    return _build_auth_response(user)
+    return schemas.RegisterResponse(
+        message="Cuenta creada. Revisa tu correo para verificarla.",
+        email=user.email,
+    )
 
 
 @router.get("/verify-email")
@@ -188,12 +229,22 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Token inválido o ya utilizado",
+            detail="Enlace de verificacion invalido",
         )
+    if (
+        user.email_verification_expires_at
+        and user.email_verification_expires_at < argentina_now()
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El enlace de verificacion expiro",
+        )
+
     user.is_verified = True
     user.email_verification_token = None
+    user.email_verification_expires_at = None
     db.commit()
-    return {"message": "Cuenta verificada correctamente"}
+    return {"ok": True, "message": "Cuenta verificada correctamente"}
 
 
 @router.post("/apple", response_model=schemas.AuthResponse)
@@ -230,6 +281,7 @@ def apple_auth(data: schemas.AppleAuth, db: Session = Depends(get_db)):
         db.add(user)
     else:
         user.apple_id = apple_id
+        user.is_verified = True
         if user.terms_accepted_at is None and data.terms_accepted:
             user.terms_accepted_at = argentina_now()
 
@@ -254,6 +306,11 @@ def login(data: schemas.UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Email o contrasena incorrectos",
+        )
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tenes que verificar tu correo antes de ingresar",
         )
     return _build_auth_response(user)
 
@@ -318,6 +375,7 @@ def google_auth(data: schemas.GoogleAuth, db: Session = Depends(get_db)):
         db.add(user)
     else:
         user.google_id = google_id
+        user.is_verified = True
         if photo_url and not user.photo_url:
             user.photo_url = photo_url
     _ensure_referral_code(db, user)
@@ -342,6 +400,11 @@ def refresh_token(data: schemas.TokenRefresh, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario no encontrado",
+        )
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tenes que verificar tu correo antes de ingresar",
         )
     return _build_auth_response(user)
 

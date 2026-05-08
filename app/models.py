@@ -75,6 +75,8 @@ class User(Base):
     apple_id = Column(String, unique=True, nullable=True)
     email_verification_token = Column(String, nullable=True, index=True)
     terms_accepted_at = Column(DateTime, nullable=True)
+    email_verification_token = Column(String, unique=True, nullable=True, index=True)
+    email_verification_expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=argentina_now)
     updated_at = Column(DateTime, default=argentina_now, onupdate=argentina_now)
 

@@ -70,4 +70,9 @@ def get_current_user(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user is None:
         raise credentials_exception
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Tenes que verificar tu correo antes de ingresar",
+        )
     return user
