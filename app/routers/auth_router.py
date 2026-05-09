@@ -4,6 +4,7 @@ import uuid
 from datetime import timedelta
 import requests
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import HTMLResponse
 from jose import jwt
 from sqlalchemy.orm import Session
 from google.oauth2 import id_token
@@ -227,24 +228,104 @@ def verify_email(token: str, db: Session = Depends(get_db)):
         .first()
     )
     if not user:
-        raise HTTPException(
+        return HTMLResponse(
+            _verification_page(
+                title="Enlace invalido",
+                message="El enlace de verificacion no existe o ya fue utilizado.",
+                ok=False,
+            ),
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Enlace de verificacion invalido",
         )
     if (
         user.email_verification_expires_at
         and user.email_verification_expires_at < argentina_now()
     ):
-        raise HTTPException(
+        return HTMLResponse(
+            _verification_page(
+                title="Enlace expirado",
+                message="El enlace de verificacion expiro. Registrate nuevamente o solicita ayuda a soporte.",
+                ok=False,
+            ),
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="El enlace de verificacion expiro",
         )
 
     user.is_verified = True
     user.email_verification_token = None
     user.email_verification_expires_at = None
     db.commit()
-    return {"ok": True, "message": "Cuenta verificada correctamente"}
+    return HTMLResponse(
+        _verification_page(
+            title="Cuenta verificada",
+            message="Tu correo fue confirmado correctamente. Ya podes volver a PawMatch e iniciar sesion.",
+            ok=True,
+        )
+    )
+
+
+def _verification_page(*, title: str, message: str, ok: bool) -> str:
+    color = "#16A34A" if ok else "#DC2626"
+    icon = "✓" if ok else "!"
+    return f"""<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title} - PawMatch</title>
+  <style>
+    * {{ box-sizing: border-box; }}
+    body {{
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #0d0d12, #211d22 58%, #100f13);
+      color: #1A1208;
+    }}
+    .card {{
+      width: min(440px, 100%);
+      padding: 34px 28px 30px;
+      border-radius: 28px;
+      background: #fff;
+      text-align: center;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .28);
+    }}
+    .mark {{
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 18px;
+      display: grid;
+      place-items: center;
+      border-radius: 999px;
+      background: {color};
+      color: white;
+      font-size: 38px;
+      font-weight: 900;
+    }}
+    h1 {{ margin: 0 0 10px; font-size: 25px; }}
+    p {{ margin: 0; color: #6B7280; line-height: 1.55; font-size: 15px; }}
+    a {{
+      display: inline-block;
+      margin-top: 26px;
+      padding: 14px 22px;
+      border-radius: 14px;
+      color: #fff;
+      background: linear-gradient(135deg, #FF7A1A, #FF5B45);
+      text-decoration: none;
+      font-weight: 900;
+    }}
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="mark">{icon}</div>
+    <h1>{title}</h1>
+    <p>{message}</p>
+    <a href="{settings.PUBLIC_WEB_URL.rstrip('/')}">Ir a PawMatch</a>
+  </main>
+</body>
+</html>"""
 
 
 @router.post("/apple", response_model=schemas.AuthResponse)

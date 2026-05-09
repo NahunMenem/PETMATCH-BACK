@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: str = "http://localhost:3000,http://10.0.2.2"
     BREVO_API_KEY: str = ""
     LANDING_URL: str = "https://pawmatch.com.ar"
+    API_PUBLIC_URL: str = "https://petmatch-back-production.up.railway.app"
     MERCADO_PAGO_ACCESS_TOKEN: str = ""
     MERCADO_PAGO_WEBHOOK_SECRET: str = ""
     MERCADO_PAGO_BACK_URL_SUCCESS: str = "petmatch://patitas/success"

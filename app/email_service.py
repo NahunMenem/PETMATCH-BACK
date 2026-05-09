@@ -10,7 +10,7 @@ BREVO_EMAIL_URL = "https://api.brevo.com/v3/smtp/email"
 
 def send_verification_email(*, to_email: str, name: str, token: str) -> None:
     verification_url = (
-        f"{settings.PUBLIC_WEB_URL.rstrip('/')}/verificar-cuenta.html?token={token}"
+        f"{settings.API_PUBLIC_URL.rstrip('/')}/auth/verify-email?token={token}"
     )
     html_content = f"""<!DOCTYPE html>
 <html lang="es">
