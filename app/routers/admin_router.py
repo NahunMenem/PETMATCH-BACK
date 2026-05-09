@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -18,6 +18,7 @@ from ..models import (
     Message,
     Notification,
     PatitasTransaction,
+    PatitasPackConfig,
     Pet,
     PetLike,
     User,
@@ -348,6 +349,60 @@ def add_patitas(
     }
 
 
+@router.get("/ventas")
+def get_admin_ventas(
+    dateFrom: Optional[str] = Query(default=None),
+    dateTo: Optional[str] = Query(default=None),
+    provincia: Optional[str] = Query(default=None),
+    page: int = Query(default=1, ge=1),
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    _: User = Depends(get_admin_user),
+):
+    q = (
+        db.query(PatitasTransaction, User, PatitasPackConfig)
+        .join(User, PatitasTransaction.usuario_id == User.id)
+        .outerjoin(PatitasPackConfig, PatitasTransaction.pack_id == PatitasPackConfig.id)
+        .filter(
+            PatitasTransaction.tipo == "compra",
+            PatitasTransaction.estado == "approved",
+        )
+    )
+
+    if dateFrom:
+        q = q.filter(PatitasTransaction.fecha >= datetime.fromisoformat(dateFrom))
+    if dateTo:
+        q = q.filter(
+            PatitasTransaction.fecha < datetime.fromisoformat(dateTo) + timedelta(days=1)
+        )
+    if provincia:
+        q = q.filter(User.location.ilike(f"%{provincia}%"))
+
+    total = q.count()
+    rows = (
+        q.order_by(PatitasTransaction.fecha.desc())
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .all()
+    )
+
+    ventas = []
+    for tx, user, pack in rows:
+        ventas.append(
+            {
+                "id": str(tx.id),
+                "fecha": tx.fecha.date().isoformat() if tx.fecha else "",
+                "usuario": user.name,
+                "email": user.email,
+                "pack": pack.name if pack else (tx.pack_id or "Patitas"),
+                "monto": pack.price if pack else 0,
+                "provincia": user.location or "Sin provincia",
+            }
+        )
+
+    return {"ventas": ventas, "total": total}
+
+
 @router.delete("/users/{user_id}")
 def delete_user_cascade(
     user_id: str,
@@ -435,6 +490,7 @@ def get_admin_pets(
     search: Optional[str] = Query(default=None),
     pet_type: Optional[str] = Query(default=None, alias="type"),
     sex: Optional[str] = Query(default=None),
+    provincia: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     _: User = Depends(get_admin_user),
 ):
@@ -451,6 +507,8 @@ def get_admin_pets(
         q = q.filter(Pet.type == pet_type)
     if sex:
         q = q.filter(Pet.sex == sex)
+    if provincia:
+        q = q.filter(User.location.ilike(f"%{provincia}%"))
     total = q.count()
     pets = q.order_by(Pet.created_at.desc()).offset((page - 1) * limit).limit(limit).all()
     return {
@@ -472,6 +530,7 @@ def get_admin_pets(
                 "owner_id": p.owner_id,
                 "owner_name": p.owner.name if p.owner else "",
                 "owner_email": p.owner.email if p.owner else "",
+                "owner_location": p.owner.location if p.owner else None,
             }
             for p in pets
         ],
@@ -485,6 +544,7 @@ def get_admin_adoptions(
     search: Optional[str] = Query(default=None),
     adoption_status: Optional[str] = Query(default=None, alias="status"),
     pet_type: Optional[str] = Query(default=None, alias="type"),
+    provincia: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     _: User = Depends(get_admin_user),
 ):
@@ -501,6 +561,8 @@ def get_admin_adoptions(
         q = q.filter(Adoption.status == adoption_status)
     if pet_type:
         q = q.filter(Adoption.type == pet_type)
+    if provincia:
+        q = q.filter(Adoption.location.ilike(f"%{provincia}%"))
     total = q.count()
     adoptions = q.order_by(Adoption.published_at.desc()).offset((page - 1) * limit).limit(limit).all()
     return {
@@ -535,6 +597,7 @@ def get_admin_lost_pets(
     limit: int = Query(default=20, le=100),
     search: Optional[str] = Query(default=None),
     lost_status: Optional[str] = Query(default=None, alias="status"),
+    provincia: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
     _: User = Depends(get_admin_user),
 ):
@@ -549,6 +612,8 @@ def get_admin_lost_pets(
         )
     if lost_status:
         q = q.filter(LostPet.status == lost_status)
+    if provincia:
+        q = q.filter(LostPet.location.ilike(f"%{provincia}%"))
     total = q.count()
     lost = q.order_by(LostPet.reported_at.desc()).offset((page - 1) * limit).limit(limit).all()
     return {
