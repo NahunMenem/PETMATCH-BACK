@@ -34,6 +34,15 @@ ADMIN_EMAIL = "nahundeveloper@gmail.com"
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
+def _mercado_pago_purchase_filters():
+    return (
+        PatitasTransaction.tipo == "compra",
+        PatitasTransaction.estado == "approved",
+        PatitasTransaction.mercado_pago_payment_id.isnot(None),
+        PatitasTransaction.pack_id.isnot(None),
+    )
+
+
 def get_admin_user(current_user: User = Depends(get_current_user)):
     if current_user.email != ADMIN_EMAIL:
         raise HTTPException(
@@ -128,20 +137,14 @@ def get_stats(db: Session = Depends(get_db), _: User = Depends(get_admin_user)):
 
     total_transactions = (
         db.query(func.count(PatitasTransaction.id))
-        .filter(
-            PatitasTransaction.tipo == "compra",
-            PatitasTransaction.estado == "approved",
-        )
+        .filter(*_mercado_pago_purchase_filters())
         .scalar()
         or 0
     )
     revenue_month = (
-        db.query(func.sum(PatitasTransaction.cantidad))
-        .filter(
-            PatitasTransaction.tipo == "compra",
-            PatitasTransaction.estado == "approved",
-            PatitasTransaction.fecha >= month_ago,
-        )
+        db.query(func.coalesce(func.sum(PatitasPackConfig.price), 0))
+        .join(PatitasTransaction, PatitasTransaction.pack_id == PatitasPackConfig.id)
+        .filter(*_mercado_pago_purchase_filters(), PatitasTransaction.fecha >= month_ago)
         .scalar()
         or 0
     )
@@ -363,10 +366,7 @@ def get_admin_ventas(
         db.query(PatitasTransaction, User, PatitasPackConfig)
         .join(User, PatitasTransaction.usuario_id == User.id)
         .outerjoin(PatitasPackConfig, PatitasTransaction.pack_id == PatitasPackConfig.id)
-        .filter(
-            PatitasTransaction.tipo == "compra",
-            PatitasTransaction.estado == "approved",
-        )
+        .filter(*_mercado_pago_purchase_filters())
     )
 
     if dateFrom:
